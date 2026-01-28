@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Gavel, AlertTriangle, Clock, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlaceBid } from "@/hooks/usePlaceBid";
 import type { Database } from "@/integrations/supabase/types";
+import { cn } from "@/lib/utils";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
 
@@ -15,18 +17,36 @@ interface BidPanelProps {
 }
 
 export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const { placeBid, loading } = usePlaceBid();
   const [bidAmount, setBidAmount] = useState("");
+  const [wasExtended, setWasExtended] = useState(false);
 
   const minBid = Number(lot.current_price) + Number(lot.min_bid_increment);
-  
+
+  // Reset extended animation after a few seconds
+  useEffect(() => {
+    if (wasExtended) {
+      const timer = setTimeout(() => setWasExtended(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [wasExtended]);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
     }).format(value);
+  };
+
+  const parseCurrencyInput = (value: string): number => {
+    // Remove currency symbol, dots (thousand separators), and convert comma to dot
+    const cleaned = value
+      .replace(/[R$\s]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    return parseFloat(cleaned) || 0;
   };
 
   const handleBid = async () => {
@@ -39,7 +59,7 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
       return;
     }
 
-    const amount = parseFloat(bidAmount.replace(/[^\d,]/g, "").replace(",", "."));
+    const amount = parseCurrencyInput(bidAmount);
 
     if (isNaN(amount) || amount < minBid) {
       toast({
@@ -50,41 +70,32 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
       return;
     }
 
-    setLoading(true);
+    const result = await placeBid(lot.id, amount);
 
-    try {
-      // Insert bid
-      const { error: bidError } = await supabase.from("bids").insert({
-        lot_id: lot.id,
-        user_id: user.id,
-        amount,
-      });
-
-      if (bidError) throw bidError;
-
-      // Update lot current price
-      const { error: lotError } = await supabase
-        .from("lots")
-        .update({ current_price: amount })
-        .eq("id", lot.id);
-
-      if (lotError) throw lotError;
-
+    if (result.success) {
       toast({
-        title: "Lance registrado!",
-        description: `Seu lance de ${formatCurrency(amount)} foi aceito.`,
+        title: result.data?.was_extended ? "🚀 Lance aceito + tempo estendido!" : "✅ Lance aceito!",
+        description: result.message,
       });
+
+      if (result.data?.was_extended) {
+        setWasExtended(true);
+      }
 
       setBidAmount("");
       onBidPlaced?.();
-    } catch (error: any) {
+    } else {
       toast({
         title: "Erro ao dar lance",
-        description: error.message || "Tente novamente.",
+        description: result.error || "Tente novamente.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !loading && bidAmount) {
+      handleBid();
     }
   };
 
@@ -93,8 +104,9 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
 
   if (!isLive || hasEnded) {
     return (
-      <div className="p-4 bg-muted rounded-lg text-center">
-        <p className="text-muted-foreground">
+      <div className="p-6 bg-muted/50 border border-border rounded-lg text-center">
+        <AlertTriangle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+        <p className="text-muted-foreground font-medium">
           {hasEnded ? "Este leilão foi encerrado." : "Este leilão ainda não começou."}
         </p>
       </div>
@@ -102,12 +114,39 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
   }
 
   return (
-    <div className="space-y-4 p-4 bg-card border border-border rounded-lg">
-      <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">Lance mínimo</p>
-        <p className="text-xl font-bold text-primary">{formatCurrency(minBid)}</p>
+    <div
+      className={cn(
+        "space-y-4 p-5 bg-card border rounded-lg transition-all duration-500",
+        wasExtended
+          ? "border-primary ring-2 ring-primary/30 animate-pulse"
+          : "border-border"
+      )}
+    >
+      {/* Extension indicator */}
+      {wasExtended && (
+        <div className="flex items-center gap-2 text-sm text-primary bg-primary/10 px-3 py-2 rounded-md">
+          <Zap className="h-4 w-4" />
+          <span className="font-medium">Anti-sniping: tempo estendido!</span>
+        </div>
+      )}
+
+      {/* Current price and minimum bid */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            Lance mínimo
+          </p>
+          <p className="text-2xl font-bold text-primary tabular-nums">
+            {formatCurrency(minBid)}
+          </p>
+        </div>
+        <Badge variant="outline" className="text-xs">
+          <Clock className="h-3 w-3 mr-1" />
+          Ao vivo
+        </Badge>
       </div>
 
+      {/* Bid input */}
       <div className="flex gap-2">
         <div className="flex-1">
           <Input
@@ -115,38 +154,80 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
             placeholder={formatCurrency(minBid)}
             value={bidAmount}
             onChange={(e) => setBidAmount(e.target.value)}
-            className="text-lg"
+            onKeyDown={handleKeyDown}
+            className="text-lg h-12 font-medium"
+            disabled={loading}
           />
         </div>
-        <Button onClick={handleBid} disabled={loading || !bidAmount} size="lg">
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button
+          onClick={handleBid}
+          disabled={loading || !bidAmount}
+          size="lg"
+          className="h-12 px-6 gap-2"
+        >
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Gavel className="h-4 w-4" />
+          )}
           Dar Lance
         </Button>
       </div>
 
-      <div className="flex gap-2">
+      {/* Quick bid buttons */}
+      <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => setBidAmount(formatCurrency(minBid))}
+          disabled={loading}
+          className="text-xs"
         >
           Mínimo
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setBidAmount(formatCurrency(minBid + Number(lot.min_bid_increment)))}
+          onClick={() =>
+            setBidAmount(formatCurrency(minBid + Number(lot.min_bid_increment)))
+          }
+          disabled={loading}
+          className="text-xs"
         >
           +{formatCurrency(Number(lot.min_bid_increment))}
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setBidAmount(formatCurrency(minBid + Number(lot.min_bid_increment) * 2))}
+          onClick={() =>
+            setBidAmount(
+              formatCurrency(minBid + Number(lot.min_bid_increment) * 2)
+            )
+          }
+          disabled={loading}
+          className="text-xs"
         >
           +{formatCurrency(Number(lot.min_bid_increment) * 2)}
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setBidAmount(
+              formatCurrency(minBid + Number(lot.min_bid_increment) * 5)
+            )
+          }
+          disabled={loading}
+          className="text-xs"
+        >
+          +{formatCurrency(Number(lot.min_bid_increment) * 5)}
+        </Button>
       </div>
+
+      {/* Info text */}
+      <p className="text-xs text-muted-foreground text-center">
+        Lances nos últimos segundos podem estender o leilão automaticamente.
+      </p>
     </div>
   );
 }

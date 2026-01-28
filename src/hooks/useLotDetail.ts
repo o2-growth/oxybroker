@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -11,12 +11,21 @@ interface LotWithDetails extends Lot {
   assets: Asset[];
 }
 
+interface BidPlacedPayload {
+  lot_id: string;
+  current_price: number;
+  ends_at: string;
+  was_extended: boolean;
+  bid_count: number;
+}
+
 export function useLotDetail(lotId: string | undefined) {
   const [lot, setLot] = useState<LotWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [wasExtended, setWasExtended] = useState(false);
 
-  const fetchLot = async () => {
+  const fetchLot = useCallback(async () => {
     if (!lotId) return;
 
     setLoading(true);
@@ -28,9 +37,13 @@ export function useLotDetail(lotId: string | undefined) {
         .from("lots")
         .select("*")
         .eq("id", lotId)
-        .single();
+        .maybeSingle();
 
       if (lotError) throw lotError;
+      if (!lotData) {
+        setError("Lote não encontrado");
+        return;
+      }
 
       // Fetch bids
       const { data: bidsData, error: bidsError } = await supabase
@@ -71,16 +84,43 @@ export function useLotDetail(lotId: string | undefined) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [lotId]);
 
   useEffect(() => {
     fetchLot();
 
     if (!lotId) return;
 
-    // Subscribe to bids realtime
+    // Subscribe to realtime lot updates (broadcast from edge function)
+    const broadcastChannel = supabase
+      .channel(`lot-updates-${lotId}`)
+      .on("broadcast", { event: "bid_placed" }, (payload) => {
+        const data = payload.payload as BidPlacedPayload;
+        
+        // Update lot state immediately without refetching
+        setLot((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            current_price: data.current_price,
+            ends_at: data.ends_at,
+          };
+        });
+
+        // Trigger extension animation
+        if (data.was_extended) {
+          setWasExtended(true);
+          setTimeout(() => setWasExtended(false), 5000);
+        }
+
+        // Refetch to get updated bids list
+        fetchLot();
+      })
+      .subscribe();
+
+    // Subscribe to database changes as backup
     const bidsChannel = supabase
-      .channel(`bids-${lotId}`)
+      .channel(`bids-db-${lotId}`)
       .on(
         "postgres_changes",
         {
@@ -95,9 +135,9 @@ export function useLotDetail(lotId: string | undefined) {
       )
       .subscribe();
 
-    // Subscribe to lot realtime
+    // Subscribe to lot changes
     const lotChannel = supabase
-      .channel(`lot-${lotId}`)
+      .channel(`lot-db-${lotId}`)
       .on(
         "postgres_changes",
         {
@@ -113,10 +153,11 @@ export function useLotDetail(lotId: string | undefined) {
       .subscribe();
 
     return () => {
+      supabase.removeChannel(broadcastChannel);
       supabase.removeChannel(bidsChannel);
       supabase.removeChannel(lotChannel);
     };
-  }, [lotId]);
+  }, [lotId, fetchLot]);
 
-  return { lot, loading, error, refetch: fetchLot };
+  return { lot, loading, error, refetch: fetchLot, wasExtended };
 }
