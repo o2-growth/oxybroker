@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          id: string
+          message: string | null
+          metadata: Json | null
+          title: string
+          type: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          title: string
+          type: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           bidding_extension_seconds: number
@@ -413,6 +446,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stripe_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          processed_at: string
+          status: string
+          stripe_event_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          status?: string
+          stripe_event_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          status?: string
+          stripe_event_id?: string
+        }
+        Relationships: []
       }
       transfers: {
         Row: {
