@@ -21,18 +21,45 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Pencil, Users } from "lucide-react";
+import {
+  Search,
+  Pencil,
+  Users,
+  MoreHorizontal,
+  UserX,
+  UserCheck,
+  Trash2,
+  Plus,
+  Ban,
+} from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
@@ -48,22 +75,34 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 const roleColors: Record<AppRole, string> = {
-  admin: "bg-red-500/10 text-red-500 border-red-500/20",
+  admin: "bg-destructive/10 text-destructive border-destructive/20",
   master_franquia: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-  franquia: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  franquia: "bg-primary/10 text-primary border-primary/20",
   oxy_hacker: "bg-green-500/10 text-green-500 border-green-500/20",
 };
 
 export default function AdminUsers() {
   useRoleGuard("admin");
   const { user } = useAuth();
-  const { users, loading, updateUser } = useUsers();
-  
+  const { users, loading, updateUser, suspendUser, deleteUser } = useUsers();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<AppRole | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [formData, setFormData] = useState<UpdateUserData>({});
   const [saving, setSaving] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [userToSuspend, setUserToSuspend] = useState<{ user: UserProfile; suspend: boolean } | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createData, setCreateData] = useState({
+    email: "",
+    password: "",
+    full_name: "",
+    role: "franquia" as AppRole,
+    franchise_category_id: null as string | null,
+  });
+  const [creating, setCreating] = useState(false);
 
   // Fetch categories for the select
   const { data: categories = [] } = useQuery({
@@ -79,17 +118,22 @@ export default function AdminUsers() {
   });
 
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    return users.filter((u) => {
       const matchesSearch =
         !searchTerm ||
-        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      const matchesRole = roleFilter === "all" || u.role === roleFilter;
 
-      return matchesSearch && matchesRole;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && !u.suspended_at) ||
+        (statusFilter === "suspended" && !!u.suspended_at);
+
+      return matchesSearch && matchesRole && matchesStatus;
     });
-  }, [users, searchTerm, roleFilter]);
+  }, [users, searchTerm, roleFilter, statusFilter]);
 
   const handleEdit = (userProfile: UserProfile) => {
     setEditingUser(userProfile);
@@ -103,7 +147,6 @@ export default function AdminUsers() {
   const handleSave = async () => {
     if (!editingUser) return;
 
-    // Prevent admin from changing their own role
     if (editingUser.id === user?.id && formData.role !== editingUser.role) {
       return;
     }
@@ -114,6 +157,71 @@ export default function AdminUsers() {
 
     if (success) {
       setEditingUser(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    await deleteUser(userToDelete.id);
+    setUserToDelete(null);
+  };
+
+  const handleSuspend = async () => {
+    if (!userToSuspend) return;
+    await suspendUser(userToSuspend.user.id, userToSuspend.suspend);
+    setUserToSuspend(null);
+  };
+
+  const handleCreate = async () => {
+    if (!createData.email || !createData.password || !createData.full_name) return;
+
+    setCreating(true);
+    try {
+      // Create user via Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: createData.email,
+        password: createData.password,
+        options: {
+          data: {
+            full_name: createData.full_name,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Update profile with role and category
+        await supabase
+          .from("profiles")
+          .update({
+            role: createData.role,
+            franchise_category_id: createData.franchise_category_id,
+          })
+          .eq("id", authData.user.id);
+
+        // Update user_roles
+        await supabase
+          .from("user_roles")
+          .update({ role: createData.role })
+          .eq("user_id", authData.user.id);
+      }
+
+      setCreateDialogOpen(false);
+      setCreateData({
+        email: "",
+        password: "",
+        full_name: "",
+        role: "franquia",
+        franchise_category_id: null,
+      });
+
+      // Refresh user list
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -133,6 +241,10 @@ export default function AdminUsers() {
               Gerencie os usuários e suas permissões
             </p>
           </div>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Usuário
+          </Button>
         </div>
 
         {/* Filters */}
@@ -162,6 +274,19 @@ export default function AdminUsers() {
               ))}
             </SelectContent>
           </Select>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value as "all" | "active" | "suspended")}
+          >
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Ativos</SelectItem>
+              <SelectItem value="suspended">Suspensos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
@@ -172,7 +297,7 @@ export default function AdminUsers() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Papel</TableHead>
-                <TableHead>Categoria</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Criado em</TableHead>
                 <TableHead className="w-[80px]">Ações</TableHead>
               </TableRow>
@@ -184,7 +309,7 @@ export default function AdminUsers() {
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
@@ -197,7 +322,10 @@ export default function AdminUsers() {
                 </TableRow>
               ) : (
                 filteredUsers.map((userProfile) => (
-                  <TableRow key={userProfile.id}>
+                  <TableRow
+                    key={userProfile.id}
+                    className={userProfile.suspended_at ? "opacity-60" : ""}
+                  >
                     <TableCell className="font-medium">
                       {userProfile.full_name || "—"}
                       {userProfile.id === user?.id && (
@@ -208,15 +336,21 @@ export default function AdminUsers() {
                       {userProfile.email || "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={roleColors[userProfile.role]}
-                      >
+                      <Badge variant="outline" className={roleColors[userProfile.role]}>
                         {roleLabels[userProfile.role]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {userProfile.franchise_category_name || "—"}
+                    <TableCell>
+                      {userProfile.suspended_at ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20">
+                          <Ban className="h-3 w-3 mr-1" />
+                          Suspenso
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                          Ativo
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(userProfile.created_at), "dd/MM/yyyy", {
@@ -224,14 +358,51 @@ export default function AdminUsers() {
                       })}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(userProfile)}
-                        className="h-8 w-8"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(userProfile)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          {userProfile.id !== user?.id && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setUserToSuspend({
+                                    user: userProfile,
+                                    suspend: !userProfile.suspended_at,
+                                  })
+                                }
+                              >
+                                {userProfile.suspended_at ? (
+                                  <>
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Reativar
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserX className="h-4 w-4 mr-2" />
+                                    Suspender
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setUserToDelete(userProfile)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -248,6 +419,120 @@ export default function AdminUsers() {
           )}
         </div>
       </div>
+
+      {/* Create Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogDescription>
+              Preencha os dados para criar um novo usuário.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="create_full_name">Nome completo</Label>
+              <Input
+                id="create_full_name"
+                value={createData.full_name}
+                onChange={(e) =>
+                  setCreateData({ ...createData, full_name: e.target.value })
+                }
+                placeholder="Nome do usuário"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create_email">Email</Label>
+              <Input
+                id="create_email"
+                type="email"
+                value={createData.email}
+                onChange={(e) =>
+                  setCreateData({ ...createData, email: e.target.value })
+                }
+                placeholder="email@exemplo.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create_password">Senha</Label>
+              <Input
+                id="create_password"
+                type="password"
+                value={createData.password}
+                onChange={(e) =>
+                  setCreateData({ ...createData, password: e.target.value })
+                }
+                placeholder="Senha inicial"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create_role">Papel</Label>
+              <Select
+                value={createData.role}
+                onValueChange={(value) =>
+                  setCreateData({ ...createData, role: value as AppRole })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um papel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(roleLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create_category">Categoria de Franquia</Label>
+              <Select
+                value={createData.franchise_category_id || "none"}
+                onValueChange={(value) =>
+                  setCreateData({
+                    ...createData,
+                    franchise_category_id: value === "none" ? null : value,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+              disabled={creating}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={creating || !createData.email || !createData.password || !createData.full_name}
+            >
+              {creating ? "Criando..." : "Criar Usuário"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
@@ -339,6 +624,51 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Suspend Confirmation */}
+      <AlertDialog open={!!userToSuspend} onOpenChange={() => setUserToSuspend(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToSuspend?.suspend ? "Suspender usuário?" : "Reativar usuário?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToSuspend?.suspend
+                ? `O usuário "${userToSuspend?.user.full_name || userToSuspend?.user.email}" será suspenso e não poderá acessar o sistema.`
+                : `O usuário "${userToSuspend?.user.full_name || userToSuspend?.user.email}" será reativado e poderá acessar o sistema novamente.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSuspend}>
+              {userToSuspend?.suspend ? "Suspender" : "Reativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O perfil de "
+              {userToDelete?.full_name || userToDelete?.email}" será permanentemente
+              removido do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
