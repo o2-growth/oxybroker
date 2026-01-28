@@ -17,6 +17,7 @@ export interface UserProfile {
   created_at: string;
   suspended_at: string | null;
   can_withdraw: boolean;
+  wallet_balance: number;
 }
 
 export interface UpdateUserData {
@@ -54,6 +55,7 @@ export function useUsers(options: UseUsersOptions = {}) {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
+      // Fetch profiles
       const { data, error, count } = await supabase
         .from("profiles")
         .select(`
@@ -72,6 +74,19 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       if (error) throw error;
 
+      // Fetch wallets for these users
+      const userIds = (data || []).map((u) => u.id);
+      const { data: walletsData } = await supabase
+        .from("wallets")
+        .select("user_id, balance")
+        .in("user_id", userIds);
+
+      // Create a map of user_id -> balance
+      const balanceMap = new Map<string, number>();
+      (walletsData || []).forEach((w) => {
+        balanceMap.set(w.user_id, w.balance);
+      });
+
       const formattedUsers: UserProfile[] = (data || []).map((user) => ({
         id: user.id,
         full_name: user.full_name,
@@ -82,6 +97,7 @@ export function useUsers(options: UseUsersOptions = {}) {
         created_at: user.created_at,
         suspended_at: user.suspended_at,
         can_withdraw: user.can_withdraw ?? false,
+        wallet_balance: balanceMap.get(user.id) ?? 0,
       }));
 
       setUsers(formattedUsers);
