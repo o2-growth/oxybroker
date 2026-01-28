@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { LotCard } from "@/components/auction/LotCard";
 import { LotListItem } from "@/components/marketplace/LotListItem";
 import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
+import { MyAuctionsSummary } from "@/components/marketplace/MyAuctionsSummary";
 import { ViewToggle, ViewMode } from "@/components/marketplace/ViewToggle";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LotGridSkeleton, StatCardSkeleton } from "@/components/ui/lot-skeleton";
@@ -121,62 +122,70 @@ export default function Marketplace() {
           availableStates={availableStates}
         />
 
-        {/* Lots */}
-        <div className="min-w-0">
-          {loading ? (
-            view === "grid" ? (
-              <LotGridSkeleton count={6} />
-            ) : (
-              <div className="space-y-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
+        {/* Lots + Sidebar */}
+        <div className="flex gap-6">
+          {/* Main content */}
+          <div className="flex-1 min-w-0">
+            {loading ? (
+              view === "grid" ? (
+                <LotGridSkeleton count={6} />
+              ) : (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
+                  ))}
+                </div>
+              )
+            ) : error ? (
+              <div className="border border-destructive/30 bg-destructive/5 rounded-lg p-6 text-center">
+                <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+                <h3 className="font-semibold mb-1">Erro ao carregar lotes</h3>
+                <p className="text-sm text-muted-foreground">{error}</p>
+              </div>
+            ) : lots.length === 0 ? (
+              <div className="border border-border rounded-lg bg-card">
+                <EmptyState
+                  icon={Gavel}
+                  title="Nenhum lote encontrado"
+                  description={
+                    hasActiveFilters
+                      ? "Tente ajustar os filtros ou limpar a busca"
+                      : "Não há lotes disponíveis no momento"
+                  }
+                  action={
+                    hasActiveFilters
+                      ? {
+                          label: "Limpar filtros",
+                          onClick: clearFilters,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            ) : view === "grid" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {lots.map((lot) => (
+                  <LotCard
+                    key={lot.id}
+                    lot={lot}
+                    assetCount={lot.asset_count}
+                    bidCount={lot.bid_count}
+                  />
                 ))}
               </div>
-            )
-          ) : error ? (
-            <div className="border border-destructive/30 bg-destructive/5 rounded-lg p-6 text-center">
-              <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
-              <h3 className="font-semibold mb-1">Erro ao carregar lotes</h3>
-              <p className="text-sm text-muted-foreground">{error}</p>
-            </div>
-          ) : lots.length === 0 ? (
-            <div className="border border-border rounded-lg bg-card">
-              <EmptyState
-                icon={Gavel}
-                title="Nenhum lote encontrado"
-                description={
-                  hasActiveFilters
-                    ? "Tente ajustar os filtros ou limpar a busca"
-                    : "Não há lotes disponíveis no momento"
-                }
-                action={
-                  hasActiveFilters
-                    ? {
-                        label: "Limpar filtros",
-                        onClick: clearFilters,
-                      }
-                    : undefined
-                }
-              />
-            </div>
-          ) : view === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {lots.map((lot) => (
-                <LotCard
-                  key={lot.id}
-                  lot={lot}
-                  assetCount={lot.asset_count}
-                  bidCount={lot.bid_count}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {lots.map((lot) => (
-                <LotListItem key={lot.id} lot={lot} />
-              ))}
-            </div>
-          )}
+            ) : (
+              <div className="space-y-3">
+                {lots.map((lot) => (
+                  <LotListItem key={lot.id} lot={lot} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right sidebar - My Auctions Summary */}
+          <aside className="w-80 shrink-0 hidden lg:block">
+            <MyAuctionsSummary />
+          </aside>
         </div>
       </div>
     </AppShell>

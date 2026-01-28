@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Target,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ import {
 
 const marketplaceItems = [
   { title: "Marketplace", url: "/marketplace", icon: Gavel },
+  { title: "Meus Leilões", url: "/my-auctions", icon: Target },
   { title: "Carteira", url: "/wallet", icon: Wallet },
   { title: "Transferências", url: "/transfers", icon: ArrowLeftRight },
   { title: "Compras", url: "/purchases", icon: ShoppingBag },
