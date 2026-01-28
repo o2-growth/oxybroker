@@ -2,6 +2,8 @@ import { useParams, Link } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { useLotDetail } from "@/hooks/useLotDetail";
 import { BidPanel } from "@/components/auction/BidPanel";
+import { BuyNowButton } from "@/components/auction/BuyNowButton";
+import { AuctionStatusBadge } from "@/components/auction/AuctionStatusBadge";
 import { CountdownTimer } from "@/components/auction/CountdownTimer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,16 +15,26 @@ import {
   Users,
   DollarSign,
   Building,
-  Clock,
-  Trophy,
   Gavel,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useWallet } from "@/hooks/useWallet";
+import { useAuctionStatus } from "@/hooks/useAuctionStatus";
+
+const ASSET_TYPE_LABELS: Record<string, string> = {
+  lead: "Lead",
+  mql: "MQL",
+  meeting: "Meeting",
+  client: "Cliente",
+  mlq: "MLQ",
+};
 
 export default function LotDetail() {
   const { id } = useParams();
-  const { lot, loading, error, refetch } = useLotDetail(id);
+  const { lot, loading, error, refetch, wasExtended } = useLotDetail(id);
   const { user } = useAuth();
+  const { wallet, refetch: refetchWallet } = useWallet();
+  const auctionStatus = useAuctionStatus(lot?.bids || []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -36,6 +48,11 @@ export default function LotDetail() {
       dateStyle: "short",
       timeStyle: "short",
     });
+  };
+
+  const handlePurchased = () => {
+    refetch();
+    refetchWallet();
   };
 
   if (loading) {
@@ -71,8 +88,7 @@ export default function LotDetail() {
   }
 
   const isLive = lot.status === "live";
-  const userHighestBid = lot.bids.find((b) => b.user_id === user?.id);
-  const isWinning = lot.bids[0]?.user_id === user?.id;
+  const balance = wallet ? Number(wallet.balance) : 0;
 
   return (
     <AppShell>
@@ -113,6 +129,14 @@ export default function LotDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Auction Status Badge */}
+            {user && isLive && (
+              <AuctionStatusBadge
+                status={auctionStatus.status}
+                myBidAmount={auctionStatus.myLastBid ? Number(auctionStatus.myLastBid.amount) : null}
+              />
+            )}
+
             {/* Price & Timer */}
             <div className="oxy-card p-6">
               <div className="grid grid-cols-2 gap-6">
@@ -132,7 +156,7 @@ export default function LotDetail() {
                     {isLive ? "Encerra em" : "Encerrou em"}
                   </p>
                   {lot.ends_at && isLive ? (
-                    <CountdownTimer endTime={lot.ends_at} />
+                    <CountdownTimer endTime={lot.ends_at} wasExtended={wasExtended} />
                   ) : (
                     <p className="text-lg font-medium">
                       {lot.ends_at ? formatDate(lot.ends_at) : "-"}
@@ -141,22 +165,18 @@ export default function LotDetail() {
                 </div>
               </div>
 
-              {isWinning && (
-                <div className="mt-4 p-3 bg-oxy-success/10 border border-oxy-success/30 rounded-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-oxy-success" />
-                  <span className="text-oxy-success font-medium">
-                    Você está vencendo este leilão!
-                  </span>
-                </div>
-              )}
-
-              {userHighestBid && !isWinning && (
-                <div className="mt-4 p-3 bg-oxy-warning/10 border border-oxy-warning/30 rounded-lg flex items-center gap-2">
-                  <Gavel className="h-5 w-5 text-oxy-warning" />
-                  <span className="text-oxy-warning font-medium">
-                    Você foi superado! Seu lance:{" "}
-                    {formatCurrency(Number(userHighestBid.amount))}
-                  </span>
+              {/* Buy Now Button */}
+              {user && isLive && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <BuyNowButton
+                    lotId={lot.id}
+                    lotTitle={lot.title}
+                    currentPrice={Number(lot.current_price)}
+                    startingPrice={Number(lot.starting_price)}
+                    balance={balance}
+                    onPurchased={handlePurchased}
+                    className="w-full"
+                  />
                 </div>
               )}
             </div>
@@ -179,7 +199,12 @@ export default function LotDetail() {
                     <div key={asset.id} className="p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h3 className="font-medium">{asset.title}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{asset.title}</h3>
+                            <Badge variant="outline" className="text-xs">
+                              {ASSET_TYPE_LABELS[asset.asset_type] || asset.asset_type}
+                            </Badge>
+                          </div>
                           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
                             {asset.sector && (
                               <span className="flex items-center gap-1">
@@ -235,12 +260,12 @@ export default function LotDetail() {
                     <div
                       key={bid.id}
                       className={`p-3 flex items-center justify-between ${
-                        index === 0 ? "bg-oxy-success/5" : ""
+                        index === 0 ? "bg-[hsl(var(--oxy-success))]/5" : ""
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         {index === 0 && (
-                          <Trophy className="h-4 w-4 text-oxy-success" />
+                          <span className="text-[hsl(var(--oxy-success))]">👑</span>
                         )}
                         <span className="text-sm text-muted-foreground">
                           {formatDate(bid.created_at)}
@@ -253,7 +278,7 @@ export default function LotDetail() {
                       </div>
                       <span
                         className={`font-mono font-semibold ${
-                          index === 0 ? "text-oxy-success" : ""
+                          index === 0 ? "text-[hsl(var(--oxy-success))]" : ""
                         }`}
                       >
                         {formatCurrency(Number(bid.amount))}

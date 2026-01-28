@@ -67,8 +67,10 @@ const statusConfig: Record<AssetStatus, { label: string; className: string }> = 
 
 const assetTypeLabels: Record<AssetType, string> = {
   lead: "Lead",
-  mlq: "MLQ",
+  mql: "MQL",
   meeting: "Reunião",
+  client: "Cliente",
+  mlq: "MLQ (Legacy)",
 };
 
 const emptyFormData = {
