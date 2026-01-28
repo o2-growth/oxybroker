@@ -1,4 +1,4 @@
-import { Moon, Sun, Bell, Menu } from "lucide-react";
+import { Moon, Sun, Bell, Menu, Wallet } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +7,48 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { MobileDrawer } from "./MobileDrawer";
+import { useWallet } from "@/hooks/useWallet";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function BalanceBadge() {
+  const { wallet, loading } = useWallet();
+
+  if (loading) {
+    return <Skeleton className="h-8 w-20 rounded-full" />;
+  }
+
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <Link
+          to="/wallet"
+          className="flex items-center gap-1.5 bg-muted/50 hover:bg-muted rounded-full px-3 py-1.5 transition-colors"
+          aria-label="Ver carteira"
+        >
+          <Wallet className="h-4 w-4 text-primary" />
+          <span className="text-sm font-mono font-medium">
+            {wallet ? formatCurrency(wallet.balance) : "---"}
+          </span>
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent className="bg-popover border-border">
+        Ver carteira
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function TopBar() {
   const { theme, toggleTheme } = useTheme();
@@ -79,6 +116,9 @@ export function TopBar() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Balance Badge */}
+          {user && <BalanceBadge />}
+
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
               <Link to="/notifications">
