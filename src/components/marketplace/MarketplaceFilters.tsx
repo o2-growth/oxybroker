@@ -1,21 +1,12 @@
-import { X, Filter, ChevronDown } from "lucide-react";
+import { X, Filter, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -28,7 +19,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { MarketplaceFilters as FiltersType } from "@/hooks/useMarketplaceFilters";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 type AssetType = Database["public"]["Enums"]["asset_type"];
 
@@ -49,12 +39,7 @@ const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   mlq: "MLQ (Legacy)",
 };
 
-const SORT_OPTIONS = [
-  { value: "time_remaining", label: "Mais tempo restante" },
-  { value: "highest_score", label: "Maior score" },
-  { value: "lowest_price", label: "Menor preço" },
-  { value: "highest_price", label: "Maior preço" },
-];
+const ACTIVE_ASSET_TYPES: AssetType[] = ["lead", "mql", "meeting", "client"];
 
 export function MarketplaceFilters({
   filters,
@@ -65,16 +50,6 @@ export function MarketplaceFilters({
   availableStates,
 }: MarketplaceFiltersProps) {
   const isMobile = useIsMobile();
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    type: true,
-    price: false,
-    score: false,
-    location: false,
-  });
-
-  const toggleSection = (section: string) => {
-    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
 
   const toggleAssetType = (type: AssetType) => {
     const current = filters.assetTypes;
@@ -112,198 +87,79 @@ export function MarketplaceFilters({
     }
   };
 
-  const FilterContent = () => (
-    <div className="space-y-4">
-      {/* Sort */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Ordenar por
-        </Label>
-        <Select
-          value={filters.sortBy}
-          onValueChange={(value) =>
-            setFilter("sortBy", value as FiltersType["sortBy"])
-          }
-        >
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Status */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Status
-        </Label>
-        <div className="flex gap-1 flex-wrap">
-          {["live", "ended", "all"].map((status) => (
-            <Button
-              key={status}
-              variant={filters.status === status ? "default" : "outline"}
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() =>
-                setFilter("status", status as FiltersType["status"])
-              }
-            >
-              {status === "live"
-                ? "Ao Vivo"
-                : status === "ended"
-                ? "Encerrados"
-                : "Todos"}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Asset Type */}
-      <Collapsible open={openSections.type} onOpenChange={() => toggleSection("type")}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between py-2">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+  // Desktop: Horizontal filter bar with popovers
+  const DesktopFilters = () => (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Asset Type Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-8 gap-1.5",
+              filters.assetTypes.length > 0 && "border-primary text-primary"
+            )}
+          >
             Tipo de Ativo
-          </Label>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              openSections.type && "rotate-180"
+            {filters.assetTypes.length > 0 && (
+              <Badge variant="secondary" className="h-5 min-w-5 px-1.5">
+                {filters.assetTypes.length}
+              </Badge>
             )}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-2 pt-2">
-          {(["lead", "mql", "meeting", "client"] as AssetType[]).map((type) => (
-            <div key={type} className="flex items-center gap-2">
-              <Checkbox
-                id={`type-${type}`}
-                checked={filters.assetTypes.includes(type)}
-                onCheckedChange={() => toggleAssetType(type)}
-              />
-              <label
-                htmlFor={`type-${type}`}
-                className="text-sm cursor-pointer flex-1"
+            <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-48 p-2">
+          <div className="space-y-1">
+            {ACTIVE_ASSET_TYPES.map((type) => (
+              <div
+                key={type}
+                className="flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-muted cursor-pointer"
+                onClick={() => toggleAssetType(type)}
               >
-                {ASSET_TYPE_LABELS[type]}
-              </label>
-            </div>
-          ))}
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Price Range */}
-      <Collapsible open={openSections.price} onOpenChange={() => toggleSection("price")}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between py-2">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Faixa de Preço
-          </Label>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              openSections.price && "rotate-180"
-            )}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-2 pt-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              type="number"
-              placeholder="Mín"
-              value={filters.minPrice ?? ""}
-              onChange={(e) =>
-                setFilter(
-                  "minPrice",
-                  e.target.value ? Number(e.target.value) : null
-                )
-              }
-              className="h-8"
-            />
-            <Input
-              type="number"
-              placeholder="Máx"
-              value={filters.maxPrice ?? ""}
-              onChange={(e) =>
-                setFilter(
-                  "maxPrice",
-                  e.target.value ? Number(e.target.value) : null
-                )
-              }
-              className="h-8"
-            />
+                <Checkbox
+                  id={`type-${type}`}
+                  checked={filters.assetTypes.includes(type)}
+                  onCheckedChange={() => toggleAssetType(type)}
+                />
+                <label
+                  htmlFor={`type-${type}`}
+                  className="text-sm cursor-pointer flex-1"
+                >
+                  {ASSET_TYPE_LABELS[type]}
+                </label>
+              </div>
+            ))}
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </PopoverContent>
+      </Popover>
 
-      {/* Score Range */}
-      <Collapsible open={openSections.score} onOpenChange={() => toggleSection("score")}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between py-2">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Faixa de Score
-          </Label>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              openSections.score && "rotate-180"
-            )}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-2 pt-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              type="number"
-              placeholder="Mín"
-              value={filters.minScore ?? ""}
-              onChange={(e) =>
-                setFilter(
-                  "minScore",
-                  e.target.value ? Number(e.target.value) : null
-                )
-              }
-              className="h-8"
-            />
-            <Input
-              type="number"
-              placeholder="Máx"
-              value={filters.maxScore ?? ""}
-              onChange={(e) =>
-                setFilter(
-                  "maxScore",
-                  e.target.value ? Number(e.target.value) : null
-                )
-              }
-              className="h-8"
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Location */}
-      <Collapsible
-        open={openSections.location}
-        onOpenChange={() => toggleSection("location")}
-      >
-        <CollapsibleTrigger className="flex w-full items-center justify-between py-2">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Localização
-          </Label>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              openSections.location && "rotate-180"
-            )}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-3 pt-2">
-          {availableStates.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Estados</p>
-              <div className="flex flex-wrap gap-1">
-                {availableStates.slice(0, 10).map((state) => (
+      {/* States Filter */}
+      {availableStates.length > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-8 gap-1.5",
+                filters.states.length > 0 && "border-primary text-primary"
+              )}
+            >
+              Estado
+              {filters.states.length > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 px-1.5">
+                  {filters.states.length}
+                </Badge>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-56 p-2">
+            <ScrollArea className="max-h-64">
+              <div className="flex flex-wrap gap-1.5">
+                {availableStates.map((state) => (
                   <Badge
                     key={state}
                     variant={filters.states.includes(state) ? "default" : "outline"}
@@ -314,23 +170,124 @@ export function MarketplaceFilters({
                   </Badge>
                 ))}
               </div>
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
+      )}
+
+      {/* Sectors Filter */}
+      {availableSectors.length > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-8 gap-1.5",
+                filters.sectors.length > 0 && "border-primary text-primary"
+              )}
+            >
+              Setor
+              {filters.sectors.length > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 px-1.5">
+                  {filters.sectors.length}
+                </Badge>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-2">
+            <ScrollArea className="max-h-64">
+              <div className="flex flex-wrap gap-1.5">
+                {availableSectors.map((sector) => (
+                  <Badge
+                    key={sector}
+                    variant={filters.sectors.includes(sector) ? "default" : "outline"}
+                    className="cursor-pointer text-xs"
+                    onClick={() => toggleSector(sector)}
+                  >
+                    {sector}
+                  </Badge>
+                ))}
+              </div>
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
+      )}
+
+      {/* Clear Filters */}
+      {hasActiveFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
+          className="h-8 gap-1.5 text-muted-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+          Limpar
+        </Button>
+      )}
+    </div>
+  );
+
+  // Mobile: Sheet with vertical filter list
+  const MobileFilterContent = () => (
+    <div className="space-y-6">
+      {/* Asset Type */}
+      <div className="space-y-3">
+        <p className="text-sm font-medium">Tipo de Ativo</p>
+        <div className="space-y-2">
+          {ACTIVE_ASSET_TYPES.map((type) => (
+            <div
+              key={type}
+              className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted cursor-pointer"
+              onClick={() => toggleAssetType(type)}
+            >
+              <Checkbox
+                id={`mobile-type-${type}`}
+                checked={filters.assetTypes.includes(type)}
+                onCheckedChange={() => toggleAssetType(type)}
+              />
+              <label
+                htmlFor={`mobile-type-${type}`}
+                className="text-sm cursor-pointer flex-1"
+              >
+                {ASSET_TYPE_LABELS[type]}
+              </label>
             </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+          ))}
+        </div>
+      </div>
+
+      {/* States */}
+      {availableStates.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Estado</p>
+          <div className="flex flex-wrap gap-1.5">
+            {availableStates.map((state) => (
+              <Badge
+                key={state}
+                variant={filters.states.includes(state) ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleState(state)}
+              >
+                {state}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Sectors */}
       {availableSectors.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Setores
-          </Label>
-          <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-            {availableSectors.slice(0, 15).map((sector) => (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Setor</p>
+          <div className="flex flex-wrap gap-1.5">
+            {availableSectors.map((sector) => (
               <Badge
                 key={sector}
                 variant={filters.sectors.includes(sector) ? "default" : "outline"}
-                className="cursor-pointer text-xs"
+                className="cursor-pointer"
                 onClick={() => toggleSector(sector)}
               >
                 {sector}
@@ -340,13 +297,12 @@ export function MarketplaceFilters({
         </div>
       )}
 
-      {/* Clear button */}
+      {/* Clear */}
       {hasActiveFilters && (
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
           onClick={clearFilters}
-          className="w-full gap-2 text-muted-foreground"
+          className="w-full gap-2"
         >
           <X className="h-4 w-4" />
           Limpar filtros
@@ -374,27 +330,12 @@ export function MarketplaceFilters({
             <SheetTitle>Filtros</SheetTitle>
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-80px)] mt-4 pr-4">
-            <FilterContent />
+            <MobileFilterContent />
           </ScrollArea>
         </SheetContent>
       </Sheet>
     );
   }
 
-  return (
-    <div className="w-64 shrink-0 space-y-4 border-r border-border pr-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Filter className="h-4 w-4" />
-          Filtros
-        </h3>
-        {hasActiveFilters && (
-          <Badge variant="secondary" className="text-xs">
-            Ativos
-          </Badge>
-        )}
-      </div>
-      <FilterContent />
-    </div>
-  );
+  return <DesktopFilters />;
 }

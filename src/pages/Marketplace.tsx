@@ -4,13 +4,11 @@ import { LotCard } from "@/components/auction/LotCard";
 import { LotListItem } from "@/components/marketplace/LotListItem";
 import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 import { ViewToggle, ViewMode } from "@/components/marketplace/ViewToggle";
-import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LotGridSkeleton, StatCardSkeleton } from "@/components/ui/lot-skeleton";
-import { Search, Gavel, TrendingUp, Clock, AlertCircle } from "lucide-react";
+import { Gavel, TrendingUp, Clock, AlertCircle } from "lucide-react";
 import { useMarketplaceFilters } from "@/hooks/useMarketplaceFilters";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "marketplaceView";
 
@@ -59,19 +57,7 @@ export default function Marketplace() {
               Encontre e dê lances nos melhores ativos
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {isMobile && (
-              <MarketplaceFilters
-                filters={filters}
-                setFilter={setFilter}
-                clearFilters={clearFilters}
-                hasActiveFilters={hasActiveFilters}
-                availableSectors={availableSectors}
-                availableStates={availableStates}
-              />
-            )}
-            <ViewToggle view={view} onViewChange={setView} />
-          </div>
+          <ViewToggle view={view} onViewChange={setView} />
         </div>
 
         {/* Stats Cards */}
@@ -125,88 +111,72 @@ export default function Marketplace() {
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar lotes..."
-            value={filters.search}
-            onChange={(e) => setFilter("search", e.target.value)}
-            className="pl-10 h-9"
-          />
-        </div>
+        {/* Filters - horizontal bar */}
+        <MarketplaceFilters
+          filters={filters}
+          setFilter={setFilter}
+          clearFilters={clearFilters}
+          hasActiveFilters={hasActiveFilters}
+          availableSectors={availableSectors}
+          availableStates={availableStates}
+        />
 
-        {/* Main Content with Sidebar */}
-        <div className="flex gap-6">
-          {/* Desktop Filters Sidebar */}
-          {!isMobile && (
-            <MarketplaceFilters
-              filters={filters}
-              setFilter={setFilter}
-              clearFilters={clearFilters}
-              hasActiveFilters={hasActiveFilters}
-              availableSectors={availableSectors}
-              availableStates={availableStates}
-            />
-          )}
-
-          {/* Lots */}
-          <div className="flex-1 min-w-0">
-            {loading ? (
-              view === "grid" ? (
-                <LotGridSkeleton count={6} />
-              ) : (
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-                  ))}
-                </div>
-              )
-            ) : error ? (
-              <div className="border border-destructive/30 bg-destructive/5 rounded-lg p-6 text-center">
-                <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
-                <h3 className="font-semibold mb-1">Erro ao carregar lotes</h3>
-                <p className="text-sm text-muted-foreground">{error}</p>
-              </div>
-            ) : lots.length === 0 ? (
-              <div className="border border-border rounded-lg bg-card">
-                <EmptyState
-                  icon={Gavel}
-                  title="Nenhum lote encontrado"
-                  description={
-                    hasActiveFilters
-                      ? "Tente ajustar os filtros ou limpar a busca"
-                      : "Não há lotes disponíveis no momento"
-                  }
-                  action={
-                    hasActiveFilters
-                      ? {
-                          label: "Limpar filtros",
-                          onClick: clearFilters,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            ) : view === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {lots.map((lot) => (
-                  <LotCard
-                    key={lot.id}
-                    lot={lot}
-                    assetCount={lot.asset_count}
-                    bidCount={lot.bid_count}
-                  />
-                ))}
-              </div>
+        {/* Lots */}
+        <div className="min-w-0">
+          {loading ? (
+            view === "grid" ? (
+              <LotGridSkeleton count={6} />
             ) : (
               <div className="space-y-3">
-                {lots.map((lot) => (
-                  <LotListItem key={lot.id} lot={lot} />
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
                 ))}
               </div>
-            )}
-          </div>
+            )
+          ) : error ? (
+            <div className="border border-destructive/30 bg-destructive/5 rounded-lg p-6 text-center">
+              <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+              <h3 className="font-semibold mb-1">Erro ao carregar lotes</h3>
+              <p className="text-sm text-muted-foreground">{error}</p>
+            </div>
+          ) : lots.length === 0 ? (
+            <div className="border border-border rounded-lg bg-card">
+              <EmptyState
+                icon={Gavel}
+                title="Nenhum lote encontrado"
+                description={
+                  hasActiveFilters
+                    ? "Tente ajustar os filtros ou limpar a busca"
+                    : "Não há lotes disponíveis no momento"
+                }
+                action={
+                  hasActiveFilters
+                    ? {
+                        label: "Limpar filtros",
+                        onClick: clearFilters,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          ) : view === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {lots.map((lot) => (
+                <LotCard
+                  key={lot.id}
+                  lot={lot}
+                  assetCount={lot.asset_count}
+                  bidCount={lot.bid_count}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {lots.map((lot) => (
+                <LotListItem key={lot.id} lot={lot} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppShell>
