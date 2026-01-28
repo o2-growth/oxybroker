@@ -20,6 +20,7 @@ import Notifications from "./pages/Notifications";
 
 // Admin pages
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminAssets from "./pages/admin/AdminAssets";
 import AdminLots from "./pages/admin/AdminLots";
@@ -54,6 +55,7 @@ const App = () => (
               
               {/* Admin routes */}
               <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/categories" element={<AdminCategories />} />
               <Route path="/admin/assets" element={<AdminAssets />} />
               <Route path="/admin/lots" element={<AdminLots />} />

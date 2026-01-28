@@ -26,6 +26,7 @@ import {
   Gavel,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ const marketplaceItems = [
 
 const adminItems = [
   { title: "Configurações", url: "/admin/settings", icon: Settings },
+  { title: "Usuários", url: "/admin/users", icon: Users },
   { title: "Categorias", url: "/admin/categories", icon: FolderTree },
   { title: "Ativos", url: "/admin/assets", icon: Package },
   { title: "Lotes", url: "/admin/lots", icon: Layers },
