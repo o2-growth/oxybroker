@@ -292,7 +292,11 @@ export default function LotDetail() {
 
           {/* Sidebar - Bid Panel */}
           <div className="space-y-4">
-            <BidPanel lot={lot} onBidPlaced={refetch} />
+            <BidPanel 
+              lot={lot} 
+              userHasBids={lot.bids.some(bid => bid.user_id === user?.id)}
+              onBidPlaced={refetch} 
+            />
 
             <div className="oxy-card p-4 space-y-3">
               <h3 className="font-semibold text-sm">Informações</h3>
