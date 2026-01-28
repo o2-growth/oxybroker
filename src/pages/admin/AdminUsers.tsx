@@ -52,6 +52,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { AdminAdjustBalanceModal } from "@/components/admin/AdminAdjustBalanceModal";
 import {
   Search,
   Pencil,
@@ -62,10 +63,11 @@ import {
   Trash2,
   Plus,
   Ban,
+  DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -90,6 +92,7 @@ export default function AdminUsers() {
   useRoleGuard("admin");
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -106,6 +109,7 @@ export default function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [userToSuspend, setUserToSuspend] = useState<{ user: UserProfile; suspend: boolean } | null>(null);
+  const [userToAdjustBalance, setUserToAdjustBalance] = useState<UserProfile | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createData, setCreateData] = useState({
     email: "",
@@ -377,6 +381,10 @@ export default function AdminUsers() {
                           <DropdownMenuItem onClick={() => handleEdit(userProfile)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setUserToAdjustBalance(userProfile)}>
+                            <DollarSign className="h-4 w-4 mr-2" />
+                            Adicionar Saldo
                           </DropdownMenuItem>
                           {userProfile.id !== user?.id && (
                             <>
@@ -722,6 +730,16 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Adjust Balance Modal */}
+      <AdminAdjustBalanceModal
+        open={!!userToAdjustBalance}
+        onOpenChange={(open) => !open && setUserToAdjustBalance(null)}
+        user={userToAdjustBalance}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+        }}
+      />
     </AppShell>
   );
 }
