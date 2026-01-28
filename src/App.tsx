@@ -13,6 +13,7 @@ import Signup from "./pages/auth/Signup";
 // Main pages
 import Marketplace from "./pages/Marketplace";
 import LotDetail from "./pages/LotDetail";
+import MyAuctions from "./pages/MyAuctions";
 import WalletPage from "./pages/Wallet";
 import Transfers from "./pages/Transfers";
 import Purchases from "./pages/Purchases";
@@ -48,6 +49,7 @@ const App = () => (
               {/* Main routes */}
               <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/lots/:id" element={<LotDetail />} />
+              <Route path="/my-auctions" element={<MyAuctions />} />
               <Route path="/wallet" element={<WalletPage />} />
               <Route path="/transfers" element={<Transfers />} />
               <Route path="/purchases" element={<Purchases />} />
