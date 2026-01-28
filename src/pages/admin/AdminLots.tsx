@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useAdminLots } from "@/hooks/useAdminLots";
 import { useAssets } from "@/hooks/useAssets";
 import type { Database } from "@/integrations/supabase/types";
@@ -76,13 +77,23 @@ const emptyFormData = {
   ends_at: "",
 };
 
+const PAGE_SIZE = 10;
+
 export default function AdminLots() {
   const { loading: authLoading } = useRoleGuard("admin");
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<LotStatus | "all">("all");
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
   const {
     lots,
+    totalCount,
+    totalPages,
     isLoading,
     createLot,
     updateLot,
@@ -96,7 +107,7 @@ export default function AdminLots() {
     isPublishing,
     isCancelling,
     isDeleting,
-  } = useAdminLots({ search, status: statusFilter });
+  } = useAdminLots({ search, status: statusFilter, page, pageSize: PAGE_SIZE });
 
   const { availableAssets } = useAssets();
 
@@ -301,7 +312,7 @@ export default function AdminLots() {
               <Skeleton key={i} className="h-20" />
             ))}
           </div>
-        ) : lots.length === 0 ? (
+        ) : lots.length === 0 && totalCount === 0 ? (
           <div className="oxy-card p-8 text-center">
             <Layers className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-semibold text-lg mb-2">Nenhum lote</h3>
@@ -310,133 +321,147 @@ export default function AdminLots() {
             </p>
           </div>
         ) : (
-          <div className="oxy-card overflow-hidden">
-            <table className="oxy-table">
-              <thead>
-                <tr>
-                  <th>Título</th>
-                  <th>Status</th>
-                  <th>Ativos</th>
-                  <th>Preço Atual</th>
-                  <th>Início</th>
-                  <th>Término</th>
-                  <th className="w-12">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lots.map((lot) => {
-                  const status = statusConfig[lot.status];
-                  const lotAssets = getLotAssets(lot.id);
+          <>
+            <div className="oxy-card overflow-hidden">
+              <table className="oxy-table">
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Status</th>
+                    <th>Ativos</th>
+                    <th>Preço Atual</th>
+                    <th>Início</th>
+                    <th>Término</th>
+                    <th className="w-12">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lots.map((lot) => {
+                    const status = statusConfig[lot.status];
+                    const lotAssets = getLotAssets(lot.id);
 
-                  return (
-                    <tr key={lot.id}>
-                      <td className="font-medium">{lot.title}</td>
-                      <td>
-                        <Badge className={status.className}>
-                          {lot.status === "live" && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-pulse" />
-                          )}
-                          {status.label}
-                        </Badge>
-                      </td>
-                      <td>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 gap-1"
-                          onClick={() => handleOpenAssets(lot)}
-                        >
-                          <Package className="h-3.5 w-3.5" />
-                          {lotAssets.length}
-                        </Button>
-                      </td>
-                      <td className="font-mono text-primary">
-                        {formatCurrency(Number(lot.current_price))}
-                      </td>
-                      <td className="text-sm text-muted-foreground">
-                        {formatDate(lot.starts_at)}
-                      </td>
-                      <td className="text-sm text-muted-foreground">
-                        {formatDate(lot.ends_at)}
-                      </td>
-                      <td>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover">
-                            <DropdownMenuItem asChild>
-                              <Link to={`/lots/${lot.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Ver Detalhes
-                              </Link>
-                            </DropdownMenuItem>
-
-                            {lot.status === "draft" && (
-                              <>
-                                <DropdownMenuItem onClick={() => handleOpenEdit(lot)}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenAssets(lot)}>
-                                  <Package className="h-4 w-4 mr-2" />
-                                  Gerenciar Ativos
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenPublish(lot)}
-                                  className="text-primary"
-                                >
-                                  <Play className="h-4 w-4 mr-2" />
-                                  Publicar
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenDelete(lot)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </DropdownMenuItem>
-                              </>
-                            )}
-
+                    return (
+                      <tr key={lot.id}>
+                        <td className="font-medium">{lot.title}</td>
+                        <td>
+                          <Badge className={status.className}>
                             {lot.status === "live" && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenCancel(lot)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Cancelar Leilão
-                                </DropdownMenuItem>
-                              </>
+                              <span className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-pulse" />
                             )}
+                            {status.label}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1"
+                            onClick={() => handleOpenAssets(lot)}
+                          >
+                            <Package className="h-3.5 w-3.5" />
+                            {lotAssets.length}
+                          </Button>
+                        </td>
+                        <td className="font-mono text-primary">
+                          {formatCurrency(Number(lot.current_price))}
+                        </td>
+                        <td className="text-sm text-muted-foreground">
+                          {formatDate(lot.starts_at)}
+                        </td>
+                        <td className="text-sm text-muted-foreground">
+                          {formatDate(lot.ends_at)}
+                        </td>
+                        <td>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/lots/${lot.id}`}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Ver Detalhes
+                                </Link>
+                              </DropdownMenuItem>
 
-                            {lot.status === "cancelled" && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenDelete(lot)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                              {lot.status === "draft" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleOpenEdit(lot)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenAssets(lot)}>
+                                    <Package className="h-4 w-4 mr-2" />
+                                    Gerenciar Ativos
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenPublish(lot)}
+                                    className="text-primary"
+                                  >
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Publicar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenDelete(lot)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {lot.status === "live" && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenCancel(lot)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Cancelar Leilão
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {lot.status === "cancelled" && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenDelete(lot)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalCount > PAGE_SIZE && (
+              <DataTablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                isLoading={isLoading}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -511,7 +536,7 @@ export default function AdminLots() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="starts_at">Início (opcional)</Label>
+                <Label htmlFor="starts_at">Início</Label>
                 <Input
                   id="starts_at"
                   type="datetime-local"
@@ -551,96 +576,82 @@ export default function AdminLots() {
         </DialogContent>
       </Dialog>
 
-      {/* Assets Management Dialog */}
+      {/* Assets Dialog */}
       <Dialog open={assetsDialogOpen} onOpenChange={setAssetsDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Ativos do Lote: {selectedLot?.title}</DialogTitle>
+            <DialogTitle>Gerenciar Ativos - {selectedLot?.title}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="py-4 space-y-4">
             {/* Linked Assets */}
             <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Ativos Vinculados
-              </Label>
-              {selectedLot && getLotAssets(selectedLot.id).length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nenhum ativo vinculado
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {selectedLot &&
-                    getLotAssets(selectedLot.id).map((asset: any) => (
-                      <div
-                        key={asset.id}
-                        className="flex items-center justify-between p-2 rounded-md border bg-muted/50"
-                      >
-                        <div>
-                          <span className="font-medium">{asset.title}</span>
-                          <Badge variant="outline" className="ml-2 capitalize">
-                            {asset.asset_type}
-                          </Badge>
-                        </div>
-                        {selectedLot.status === "draft" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleRemoveAsset(asset.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            {/* Available Assets to Add */}
-            {selectedLot?.status === "draft" && (
-              <div>
-                <Label className="text-sm font-medium mb-2 block">
-                  Adicionar Ativo
-                </Label>
-                {availableAssets.filter(
-                  (a) => !getLinkedAssetIds().includes(a.id)
-                ).length === 0 ? (
+              <Label className="text-sm font-medium">Ativos Vinculados</Label>
+              <div className="mt-2 space-y-2">
+                {getLotAssets(selectedLot?.id || "").length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Nenhum ativo disponível
+                    Nenhum ativo vinculado
                   </p>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {availableAssets
-                      .filter((a) => !getLinkedAssetIds().includes(a.id))
-                      .map((asset) => (
-                        <div
-                          key={asset.id}
-                          className="flex items-center justify-between p-2 rounded-md border"
+                  getLotAssets(selectedLot?.id || "").map((asset: any) => (
+                    <div
+                      key={asset.id}
+                      className="flex items-center justify-between p-2 rounded-lg border"
+                    >
+                      <span className="text-sm">{asset.title}</span>
+                      {selectedLot?.status === "draft" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleRemoveAsset(asset.id)}
                         >
-                          <div>
-                            <span className="font-medium">{asset.title}</span>
-                            <Badge variant="outline" className="ml-2 capitalize">
-                              {asset.asset_type}
-                            </Badge>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddAsset(asset.id)}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Adicionar
-                          </Button>
-                        </div>
-                      ))}
-                  </div>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
                 )}
+              </div>
+            </div>
+
+            {/* Available Assets */}
+            {selectedLot?.status === "draft" && (
+              <div>
+                <Label className="text-sm font-medium">Ativos Disponíveis</Label>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                  {availableAssets
+                    .filter((a) => !getLinkedAssetIds().includes(a.id))
+                    .map((asset) => (
+                      <div
+                        key={asset.id}
+                        className="flex items-center justify-between p-2 rounded-lg border"
+                      >
+                        <span className="text-sm">{asset.title}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddAsset(asset.id)}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Adicionar
+                        </Button>
+                      </div>
+                    ))}
+                  {availableAssets.filter(
+                    (a) => !getLinkedAssetIds().includes(a.id)
+                  ).length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum ativo disponível
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setAssetsDialogOpen(false)}>Fechar</Button>
+            <Button variant="outline" onClick={() => setAssetsDialogOpen(false)}>
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -676,17 +687,13 @@ export default function AdminLots() {
             <AlertDialogTitle>Publicar Lote</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja publicar o lote "{lotToPublish?.title}"?
-              O lote ficará disponível para lances no marketplace e os ativos
-              vinculados serão marcados como "Em Leilão".
+              Ele ficará disponível no marketplace e os ativos serão marcados como
+              "em leilão".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handlePublish}
-              disabled={isPublishing}
-              className="bg-primary"
-            >
+            <AlertDialogAction onClick={handlePublish} disabled={isPublishing}>
               {isPublishing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Publicar
             </AlertDialogAction>
@@ -701,7 +708,7 @@ export default function AdminLots() {
             <AlertDialogTitle>Cancelar Leilão</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja cancelar o leilão "{lotToCancel?.title}"?
-              Os ativos vinculados serão liberados novamente.
+              Os ativos serão liberados e marcados como "disponíveis".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

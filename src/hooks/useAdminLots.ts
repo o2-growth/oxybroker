@@ -17,15 +17,21 @@ interface LotWithAssets extends Lot {
 interface LotFilters {
   search?: string;
   status?: LotStatus | "all";
+  page?: number;
+  pageSize?: number;
 }
 
 export function useAdminLots(filters: LotFilters = {}) {
+  const { search, status, page = 1, pageSize = 10 } = filters;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: lots = [], isLoading, error, refetch } = useQuery({
-    queryKey: ["admin-lots", filters],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["admin-lots", search, status, page, pageSize],
     queryFn: async () => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from("lots")
         .select(`
@@ -34,22 +40,28 @@ export function useAdminLots(filters: LotFilters = {}) {
             asset_id,
             assets (*)
           )
-        `)
+        `, { count: "exact" })
         .order("created_at", { ascending: false });
 
-      if (filters.search) {
-        query = query.ilike("title", `%${filters.search}%`);
+      if (search) {
+        query = query.ilike("title", `%${search}%`);
       }
 
-      if (filters.status && filters.status !== "all") {
-        query = query.eq("status", filters.status);
+      if (status && status !== "all") {
+        query = query.eq("status", status);
       }
 
-      const { data, error } = await query;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data as LotWithAssets[];
+      return { lots: data as LotWithAssets[], totalCount: count || 0 };
     },
   });
+
+  const lots = data?.lots || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   const createMutation = useMutation({
     mutationFn: async (data: Omit<LotInsert, "id" | "created_at" | "updated_at">) => {
@@ -373,6 +385,8 @@ export function useAdminLots(filters: LotFilters = {}) {
 
   return {
     lots,
+    totalCount,
+    totalPages,
     isLoading,
     error,
     refetch,

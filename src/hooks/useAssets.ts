@@ -13,37 +13,49 @@ interface AssetFilters {
   search?: string;
   status?: AssetStatus | "all";
   type?: AssetType | "all";
+  page?: number;
+  pageSize?: number;
 }
 
 export function useAssets(filters: AssetFilters = {}) {
+  const { search, status, type, page = 1, pageSize = 10 } = filters;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: assets = [], isLoading, error, refetch } = useQuery({
-    queryKey: ["assets", filters],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["assets", search, status, type, page, pageSize],
     queryFn: async () => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       let query = supabase
         .from("assets")
-        .select("*")
+        .select("*", { count: "exact" })
         .order("created_at", { ascending: false });
 
-      if (filters.search) {
-        query = query.ilike("title", `%${filters.search}%`);
+      if (search) {
+        query = query.ilike("title", `%${search}%`);
       }
 
-      if (filters.status && filters.status !== "all") {
-        query = query.eq("status", filters.status);
+      if (status && status !== "all") {
+        query = query.eq("status", status);
       }
 
-      if (filters.type && filters.type !== "all") {
-        query = query.eq("asset_type", filters.type);
+      if (type && type !== "all") {
+        query = query.eq("asset_type", type);
       }
 
-      const { data, error } = await query;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data as Asset[];
+      return { assets: data as Asset[], totalCount: count || 0 };
     },
   });
+
+  const assets = data?.assets || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   // Fetch available assets (for linking to lots)
   const { data: availableAssets = [] } = useQuery({
@@ -208,6 +220,8 @@ export function useAssets(filters: AssetFilters = {}) {
 
   return {
     assets,
+    totalCount,
+    totalPages,
     availableAssets,
     isLoading,
     error,

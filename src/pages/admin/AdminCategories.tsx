@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FolderTree, Plus, Loader2, Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { FolderTree, Plus, Loader2, Pencil, Trash2, MoreHorizontal, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,15 +30,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useCategories } from "@/hooks/useCategories";
 import type { Database, Json } from "@/integrations/supabase/types";
 
 type Category = Database["public"]["Tables"]["franchise_categories"]["Row"];
 
+const PAGE_SIZE = 12;
+
 export default function AdminCategories() {
   const { loading: authLoading } = useRoleGuard("admin");
+  const [page, setPage] = useState(1);
+
   const {
     categories,
+    totalCount,
+    totalPages,
     isLoading,
     createCategory,
     updateCategory,
@@ -46,7 +53,7 @@ export default function AdminCategories() {
     isCreating,
     isUpdating,
     isDeleting,
-  } = useCategories();
+  } = useCategories({ page, pageSize: PAGE_SIZE });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -143,7 +150,7 @@ export default function AdminCategories() {
           </Button>
         </div>
 
-        {categories.length === 0 ? (
+        {categories.length === 0 && totalCount === 0 ? (
           <div className="oxy-card p-8 text-center">
             <FolderTree className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-semibold text-lg mb-2">Nenhuma categoria</h3>
@@ -152,46 +159,60 @@ export default function AdminCategories() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map((category) => (
-              <div key={category.id} className="oxy-card p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{category.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Criada em{" "}
-                      {new Date(category.created_at).toLocaleDateString("pt-BR")}
-                    </p>
-                    {category.limits_json && Object.keys(category.limits_json as object).length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Limites configurados
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categories.map((category) => (
+                <div key={category.id} className="oxy-card p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{category.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Criada em{" "}
+                        {new Date(category.created_at).toLocaleDateString("pt-BR")}
                       </p>
-                    )}
+                      {category.limits_json && Object.keys(category.limits_json as object).length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Limites configurados
+                        </p>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-popover">
+                        <DropdownMenuItem onClick={() => handleOpenEdit(category)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenDelete(category)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-popover">
-                      <DropdownMenuItem onClick={() => handleOpenEdit(category)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleOpenDelete(category)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalCount > PAGE_SIZE && (
+              <DataTablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                isLoading={isLoading}
+              />
+            )}
+          </>
         )}
       </div>
 

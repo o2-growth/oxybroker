@@ -32,15 +32,27 @@ export interface CreateUserData {
   franchise_category_id?: string | null;
 }
 
-export function useUsers() {
+interface UseUsersOptions {
+  page?: number;
+  pageSize?: number;
+}
+
+export function useUsers(options: UseUsersOptions = {}) {
+  const { page = 1, pageSize = 10 } = options;
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
 
-  const fetchUsers = async () => {
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from("profiles")
         .select(`
           id,
@@ -51,8 +63,9 @@ export function useUsers() {
           created_at,
           suspended_at,
           franchise_categories (name)
-        `)
-        .order("created_at", { ascending: false });
+        `, { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
@@ -68,6 +81,7 @@ export function useUsers() {
       }));
 
       setUsers(formattedUsers);
+      setTotalCount(count || 0);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar usuários",
@@ -77,7 +91,7 @@ export function useUsers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, toast]);
 
   const updateUser = async (userId: string, data: UpdateUserData) => {
     try {
@@ -243,11 +257,13 @@ export function useUsers() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   return {
     users,
     loading,
+    totalCount,
+    totalPages,
     fetchUsers,
     createUser,
     updateUser,
