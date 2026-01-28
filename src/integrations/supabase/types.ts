@@ -545,6 +545,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_oxy_hacker: { Args: never; Returns: boolean }
+      place_bid_atomic: {
+        Args: { p_amount: number; p_lot_id: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "master_franquia" | "franquia" | "oxy_hacker"

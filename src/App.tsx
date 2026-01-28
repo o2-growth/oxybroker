@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { OutbidNotificationProvider } from "@/components/providers/OutbidNotificationProvider";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -34,31 +35,33 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            {/* Redirect root to marketplace */}
-            <Route path="/" element={<Navigate to="/marketplace" replace />} />
-            
-            {/* Auth routes */}
-            <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/signup" element={<Signup />} />
-            
-            {/* Main routes */}
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/lots/:id" element={<LotDetail />} />
-            <Route path="/wallet" element={<WalletPage />} />
-            <Route path="/transfers" element={<Transfers />} />
-            <Route path="/purchases" element={<Purchases />} />
-            <Route path="/notifications" element={<Notifications />} />
-            
-            {/* Admin routes */}
-            <Route path="/admin/settings" element={<AdminSettings />} />
-            <Route path="/admin/categories" element={<AdminCategories />} />
-            <Route path="/admin/assets" element={<AdminAssets />} />
-            <Route path="/admin/lots" element={<AdminLots />} />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <OutbidNotificationProvider>
+            <Routes>
+              {/* Redirect root to marketplace */}
+              <Route path="/" element={<Navigate to="/marketplace" replace />} />
+              
+              {/* Auth routes */}
+              <Route path="/auth/login" element={<Login />} />
+              <Route path="/auth/signup" element={<Signup />} />
+              
+              {/* Main routes */}
+              <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/lots/:id" element={<LotDetail />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/transfers" element={<Transfers />} />
+              <Route path="/purchases" element={<Purchases />} />
+              <Route path="/notifications" element={<Notifications />} />
+              
+              {/* Admin routes */}
+              <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/categories" element={<AdminCategories />} />
+              <Route path="/admin/assets" element={<AdminAssets />} />
+              <Route path="/admin/lots" element={<AdminLots />} />
+              
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </OutbidNotificationProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
