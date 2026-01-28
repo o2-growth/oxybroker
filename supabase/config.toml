@@ -1,1 +1,4 @@
 project_id = "hwgqntftsjnqjchyzjzk"
+
+[functions.place-bid]
+verify_jwt = false
