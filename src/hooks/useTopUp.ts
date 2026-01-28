@@ -34,8 +34,16 @@ export function useTopUp(): UseTopUpReturn {
         throw new Error("URL de checkout não retornada");
       }
 
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
+      // Abre em nova aba para funcionar no iframe de preview
+      const checkoutWindow = window.open(data.url, "_blank");
+
+      // Fallback: se popup bloqueado, tenta redirecionamento direto
+      if (!checkoutWindow || checkoutWindow.closed) {
+        window.location.href = data.url;
+      }
+
+      // Reseta loading após abrir a aba (UX melhor)
+      setLoading(false);
     } catch (error: any) {
       console.error("Error creating checkout:", error);
       toast({
