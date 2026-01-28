@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useWallet } from "@/hooks/useWallet";
 import { Button } from "@/components/ui/button";
@@ -47,9 +48,15 @@ const transactionTypeConfig = {
 };
 
 export default function WalletPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { wallet, transactions, loading, error } = useWallet();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth/login");
+    }
+  }, [user, authLoading, navigate]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -65,8 +72,19 @@ export default function WalletPage() {
     });
   };
 
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-64" />
+        </div>
+      </AppShell>
+    );
+  }
+
   if (!user) {
-    navigate("/auth/login");
     return null;
   }
 
