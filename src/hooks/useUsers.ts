@@ -16,12 +16,14 @@ export interface UserProfile {
   franchise_category_name: string | null;
   created_at: string;
   suspended_at: string | null;
+  can_withdraw: boolean;
 }
 
 export interface UpdateUserData {
   full_name?: string;
   role?: AppRole;
   franchise_category_id?: string | null;
+  can_withdraw?: boolean;
 }
 
 export interface CreateUserData {
@@ -62,6 +64,7 @@ export function useUsers(options: UseUsersOptions = {}) {
           franchise_category_id,
           created_at,
           suspended_at,
+          can_withdraw,
           franchise_categories (name)
         `, { count: "exact" })
         .order("created_at", { ascending: false })
@@ -78,6 +81,7 @@ export function useUsers(options: UseUsersOptions = {}) {
         franchise_category_name: user.franchise_categories?.name || null,
         created_at: user.created_at,
         suspended_at: user.suspended_at,
+        can_withdraw: user.can_withdraw ?? false,
       }));
 
       setUsers(formattedUsers);
@@ -96,13 +100,15 @@ export function useUsers(options: UseUsersOptions = {}) {
   const updateUser = async (userId: string, data: UpdateUserData) => {
     try {
       // Update profiles table
+      const updateData: Record<string, any> = {};
+      if (data.full_name !== undefined) updateData.full_name = data.full_name;
+      if (data.role !== undefined) updateData.role = data.role;
+      if (data.franchise_category_id !== undefined) updateData.franchise_category_id = data.franchise_category_id;
+      if (data.can_withdraw !== undefined) updateData.can_withdraw = data.can_withdraw;
+
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          full_name: data.full_name,
-          role: data.role,
-          franchise_category_id: data.franchise_category_id,
-        })
+        .update(updateData)
         .eq("id", userId);
 
       if (profileError) throw profileError;

@@ -10,6 +10,7 @@ export function useWallet() {
   const { user } = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [canWithdraw, setCanWithdraw] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +42,15 @@ export function useWallet() {
 
       if (txError) throw txError;
       setTransactions(txData || []);
+
+      // Fetch can_withdraw from profile
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("can_withdraw")
+        .eq("id", user.id)
+        .single();
+
+      setCanWithdraw(profileData?.can_withdraw ?? false);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -52,5 +62,5 @@ export function useWallet() {
     fetchWallet();
   }, [user]);
 
-  return { wallet, transactions, loading, error, refetch: fetchWallet };
+  return { wallet, transactions, canWithdraw, loading, error, refetch: fetchWallet };
 }
