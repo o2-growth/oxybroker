@@ -1,150 +1,138 @@
 
-# Plano: CRUD Completo para Categorias, Ativos e Lotes
+
+# Plano: Paginacao para Usuarios, Categorias, Ativos e Lotes
 
 ## Resumo
 
-Implementar operacoes completas de Create, Read, Update e Delete para as tres entidades principais do sistema de leilao:
-
-| Entidade | Tabela | Funcionalidades |
-|----------|--------|-----------------|
-| Categorias | `franchise_categories` | Criar, listar, editar nome/limites, excluir |
-| Ativos | `assets` | Criar, listar, editar, mudar status, excluir |
-| Lotes | `lots` | Criar, listar, editar, gerenciar ativos, publicar, cancelar |
+Implementar paginacao server-side (Supabase) para as quatro entidades administrativas, permitindo lidar com grandes volumes de dados de forma eficiente.
 
 ---
 
-## Arquitetura
+## Arquitetura da Paginacao
 
 ```text
-+-------------------+     +------------------+     +------------------+
-|   AdminCategories |     |   AdminAssets    |     |   AdminLots      |
-|   (Pagina)        |     |   (Pagina)       |     |   (Pagina)       |
-+--------+----------+     +--------+---------+     +--------+---------+
-         |                         |                        |
-         v                         v                        v
-+--------+----------+     +--------+---------+     +--------+---------+
-|  useCategories    |     |  useAssets       |     |  useAdminLots    |
-|  (Hook)           |     |  (Hook)          |     |  (Hook)          |
-+--------+----------+     +--------+---------+     +--------+---------+
-         |                         |                        |
-         +-------------------------+------------------------+
-                                   |
-                                   v
-                          +--------+---------+
-                          |   Supabase       |
-                          |   (Client SDK)   |
-                          +------------------+
++------------------+     +------------------+     +------------------+
+|   Admin Page     |     |   Custom Hook    |     |   Supabase       |
++------------------+     +------------------+     +------------------+
+|                  |     |                  |     |                  |
+|  page = 1        |---->|  .range(from,to) |---->|  LIMIT + OFFSET  |
+|  pageSize = 10   |     |  .count("exact") |     |  + COUNT(*)      |
+|                  |<----|  totalCount      |<----|                  |
+|                  |     |  items[]         |     |                  |
++------------------+     +------------------+     +------------------+
+         |                       |
+         v                       v
++------------------+     +------------------+
+|  PaginationBar   |     |  "1-10 de 150"   |
+|  < 1 2 ... 15 >  |     |  registros       |
++------------------+     +------------------+
 ```
 
 ---
 
-## 1. Categorias (franchise_categories)
+## Componente Reutilizavel
 
-### 1.1 Criar Hook `useCategories`
+### `DataTablePagination`
 
-| Funcao | Descricao |
-|--------|-----------|
-| `fetchCategories()` | Listar todas as categorias |
-| `createCategory(name, limits_json)` | Criar nova categoria |
-| `updateCategory(id, data)` | Editar categoria existente |
-| `deleteCategory(id)` | Excluir categoria (com validacao) |
+Criar um componente generico que pode ser usado em todas as tabelas:
 
-### 1.2 Atualizar `AdminCategories.tsx`
+| Prop | Tipo | Descricao |
+|------|------|-----------|
+| `currentPage` | number | Pagina atual (1-indexed) |
+| `totalPages` | number | Total de paginas |
+| `totalItems` | number | Total de registros |
+| `pageSize` | number | Itens por pagina |
+| `onPageChange` | (page) => void | Callback de mudanca de pagina |
 
-- Adicionar botao de editar em cada card
-- Adicionar botao de excluir em cada card
-- Dialog para edicao (nome e limites JSON)
-- Confirmacao antes de excluir
-- Validacao: nao permitir excluir categoria com usuarios vinculados
-
-### Campos do Formulario
-- Nome (obrigatorio)
-- Limites JSON (opcional, editor simples)
+### Funcionalidades
+- Botoes Anterior/Proximo
+- Numeros de pagina (com ellipsis para ranges longos)
+- Indicador "1-10 de 150 registros"
+- Desabilitar botoes nas bordas
 
 ---
 
-## 2. Ativos (assets)
+## 1. Usuarios
 
-### 2.1 Criar Hook `useAssets`
+### Modificar `useUsers.ts`
 
-| Funcao | Descricao |
-|--------|-----------|
-| `fetchAssets(filters)` | Listar com filtros (status, tipo, busca) |
-| `createAsset(data)` | Criar novo ativo |
-| `updateAsset(id, data)` | Editar ativo existente |
-| `updateAssetStatus(id, status)` | Mudar status do ativo |
-| `deleteAsset(id)` | Excluir ativo (apenas draft) |
+| Parametro | Tipo | Default |
+|-----------|------|---------|
+| `page` | number | 1 |
+| `pageSize` | number | 10 |
 
-### 2.2 Atualizar `AdminAssets.tsx`
+Query Supabase:
+```text
+.range((page - 1) * pageSize, page * pageSize - 1)
+.select(..., { count: "exact" })
+```
 
-- Conectar botao "Novo Ativo" a dialog de criacao
-- Adicionar coluna de acoes na tabela
-- Dialog para criar/editar ativo
-- Filtros por status e tipo
-- Acoes: Editar, Mudar Status, Excluir
+Retorno adicional:
+- `totalCount: number`
+- `totalPages: number`
 
-### Campos do Formulario
-| Campo | Tipo | Obrigatorio |
-|-------|------|-------------|
-| `title` | texto | Sim |
-| `asset_type` | select (lead, mlq, meeting) | Sim |
-| `status` | select | Sim |
-| `sector` | texto | Nao |
-| `revenue_range` | texto | Nao |
-| `location_city` | texto | Nao |
-| `location_state` | texto | Nao |
-| `employees_count` | numero | Nao |
-| `base_score` | numero | Nao |
+### Modificar `AdminUsers.tsx`
 
-### Status Disponiveis
-- `draft` - Rascunho
-- `available` - Disponivel para leilao
-- `in_auction` - Em leilao (nao editavel)
-- `sold` - Vendido
-- `returned` - Devolvido
-- `disabled` - Desativado
+- Adicionar estado `page` e `pageSize`
+- Exibir componente `DataTablePagination` abaixo da tabela
+- Atualizar contagem de registros
 
 ---
 
-## 3. Lotes (lots)
+## 2. Categorias
 
-### 3.1 Criar Hook `useAdminLots`
+### Modificar `useCategories.ts`
 
-| Funcao | Descricao |
-|--------|-----------|
-| `fetchLots(filters)` | Listar com filtros |
-| `createLot(data)` | Criar novo lote |
-| `updateLot(id, data)` | Editar lote (apenas draft) |
-| `addAssetToLot(lotId, assetId)` | Vincular ativo ao lote |
-| `removeAssetFromLot(lotId, assetId)` | Desvincular ativo |
-| `publishLot(id)` | Mudar status para live |
-| `cancelLot(id)` | Cancelar lote |
-| `deleteLot(id)` | Excluir lote (apenas draft) |
+Adicionar paginacao via parametros:
 
-### 3.2 Atualizar `AdminLots.tsx`
+| Parametro | Tipo | Default |
+|-----------|------|---------|
+| `page` | number | 1 |
+| `pageSize` | number | 12 |
 
-- Dialog para criar/editar lote
-- Selecao de ativos disponiveis para vincular
-- Lista de ativos vinculados ao lote
-- Filtros por status
-- Acoes por status:
+Retorno adicional:
+- `totalCount`
+- `totalPages`
 
-| Status | Acoes Permitidas |
-|--------|------------------|
-| `draft` | Editar, Publicar, Excluir |
-| `live` | Cancelar, Ver detalhes |
-| `ended` | Ver detalhes |
-| `cancelled` | Excluir |
+### Modificar `AdminCategories.tsx`
 
-### Campos do Formulario
-| Campo | Tipo | Obrigatorio |
-|-------|------|-------------|
-| `title` | texto | Sim |
-| `description` | textarea | Nao |
-| `starting_price` | moeda | Sim |
-| `min_bid_increment` | moeda | Sim (default 100) |
-| `starts_at` | datetime | Nao (publica imediatamente) |
-| `ends_at` | datetime | Sim |
+- Adicionar estado de paginacao
+- Exibir paginacao abaixo do grid de cards
+- Mostrar contagem total
+
+---
+
+## 3. Ativos
+
+### Modificar `useAssets.ts`
+
+| Parametro | Tipo | Default |
+|-----------|------|---------|
+| `page` | number | 1 |
+| `pageSize` | number | 10 |
+
+### Modificar `AdminAssets.tsx`
+
+- Adicionar estado de paginacao
+- Resetar pagina ao mudar filtros
+- Exibir paginacao na tabela
+
+---
+
+## 4. Lotes
+
+### Modificar `useAdminLots.ts`
+
+| Parametro | Tipo | Default |
+|-----------|------|---------|
+| `page` | number | 1 |
+| `pageSize` | number | 10 |
+
+### Modificar `AdminLots.tsx`
+
+- Adicionar estado de paginacao
+- Resetar pagina ao mudar filtros/busca
+- Exibir paginacao na tabela
 
 ---
 
@@ -152,108 +140,72 @@ Implementar operacoes completas de Create, Read, Update e Delete para as tres en
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/hooks/useCategories.ts` | Hook CRUD categorias |
-| `src/hooks/useAssets.ts` | Hook CRUD ativos |
-| `src/hooks/useAdminLots.ts` | Hook CRUD lotes |
+| `src/components/ui/data-table-pagination.tsx` | Componente de paginacao reutilizavel |
 
 ## Arquivos a Modificar
 
 | Arquivo | Alteracoes |
 |---------|------------|
-| `src/pages/admin/AdminCategories.tsx` | Adicionar editar, excluir, dialog completo |
-| `src/pages/admin/AdminAssets.tsx` | Adicionar criar, editar, excluir, filtros, acoes |
-| `src/pages/admin/AdminLots.tsx` | Adicionar criar, editar, vincular ativos, publicar, cancelar |
+| `src/hooks/useUsers.ts` | Adicionar paginacao server-side |
+| `src/hooks/useCategories.ts` | Adicionar paginacao server-side |
+| `src/hooks/useAssets.ts` | Adicionar paginacao server-side |
+| `src/hooks/useAdminLots.ts` | Adicionar paginacao server-side |
+| `src/pages/admin/AdminUsers.tsx` | Integrar paginacao + reset ao filtrar |
+| `src/pages/admin/AdminCategories.tsx` | Integrar paginacao |
+| `src/pages/admin/AdminAssets.tsx` | Integrar paginacao + reset ao filtrar |
+| `src/pages/admin/AdminLots.tsx` | Integrar paginacao + reset ao filtrar |
 
 ---
 
 ## Detalhes Tecnicos
 
-### Validacoes de Negocio
+### Query Supabase com Paginacao
+
+Para cada hook, a query sera modificada para usar `.range()`:
 
 ```text
-CATEGORIAS
-  Excluir:
-    - Verificar se ha usuarios vinculados
-    - Se sim, exibir erro: "Categoria possui usuarios vinculados"
+const from = (page - 1) * pageSize;
+const to = from + pageSize - 1;
 
-ATIVOS
-  Excluir:
-    - Apenas status = 'draft'
-    - Verificar se esta em algum lote
+const { data, error, count } = await supabase
+  .from("table")
+  .select("*", { count: "exact" })  // IMPORTANTE: count retorna total
+  .order("created_at", { ascending: false })
+  .range(from, to);
 
-  Editar:
-    - Status in_auction ou sold = somente leitura
-
-LOTES
-  Publicar:
-    - Verificar se ha ativos vinculados (minimo 1)
-    - Verificar se ends_at > now()
-    - Atualizar status dos ativos para 'in_auction'
-
-  Cancelar:
-    - Reverter status dos ativos para 'available'
-    - Atualizar status do lote para 'cancelled'
-
-  Excluir:
-    - Apenas status = 'draft' ou 'cancelled'
+// count = total de registros que correspondem aos filtros
+// totalPages = Math.ceil(count / pageSize)
 ```
 
-### Componentes Reutilizaveis
-
-Serao utilizados os componentes existentes do shadcn/ui:
-- `Dialog` para modais
-- `AlertDialog` para confirmacoes
-- `Select` para dropdowns
-- `Input` para campos de texto
-- `Textarea` para descricoes
-- `Badge` para status
-- `Button` para acoes
-- `Table` para listagens
-- `DropdownMenu` para menu de acoes
-
-### Formatacao
-
-- Datas: `dd/MM/yyyy HH:mm` (formato brasileiro)
-- Moeda: `R$ 1.000,00` (BRL)
-- Status: Labels em portugues com cores semanticas
-
----
-
-## Fluxo de Publicacao de Lote
+### Componente DataTablePagination
 
 ```text
-1. Admin cria lote (status: draft)
-         |
-         v
-2. Admin vincula ativos disponiveis ao lote
-         |
-         v
-3. Admin define datas e precos
-         |
-         v
-4. Admin clica "Publicar"
-         |
-         v
-5. Sistema valida:
-   - Ha ativos vinculados?
-   - ends_at > now?
-         |
-         v
-6. Sistema atualiza:
-   - lot.status = 'live'
-   - lot.starts_at = now() (se nao definido)
-   - assets.status = 'in_auction' (para cada ativo vinculado)
-         |
-         v
-7. Lote aparece no Marketplace para franqueados
+Estrutura Visual:
+
+Mostrando 1-10 de 150        < Anterior | 1 | 2 | ... | 15 | Proximo >
+
+- Links com cursor pointer
+- Pagina atual destacada
+- Anterior/Proximo desabilitados nas bordas
+- Ellipsis para gaps grandes
+```
+
+### Reset de Pagina
+
+Quando o usuario muda filtros ou busca, a pagina deve voltar para 1:
+
+```text
+useEffect(() => {
+  setPage(1);
+}, [search, statusFilter, typeFilter]);
 ```
 
 ---
 
 ## Ordem de Implementacao
 
-1. Hooks (base da logica)
-2. AdminCategories (mais simples, apenas nome)
-3. AdminAssets (complexidade media)
-4. AdminLots (mais complexo, depende de ativos)
+1. Criar componente `DataTablePagination`
+2. Modificar hooks (todos em paralelo)
+3. Modificar paginas administrativas (todas em paralelo)
+4. Testar navegacao e reset de filtros
 
