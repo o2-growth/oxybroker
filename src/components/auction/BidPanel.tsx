@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Gavel, AlertTriangle, Clock, Zap } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2, Gavel, AlertTriangle, Clock, Zap, Wallet, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlaceBid } from "@/hooks/usePlaceBid";
+import { useWallet } from "@/hooks/useWallet";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -16,14 +19,34 @@ interface BidPanelProps {
   onBidPlaced?: () => void;
 }
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+};
+
+const parseCurrencyInput = (value: string): number => {
+  // Remove currency symbol, dots (thousand separators), and convert comma to dot
+  const cleaned = value
+    .replace(/[R$\s]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  return parseFloat(cleaned) || 0;
+};
+
 export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { placeBid, loading } = usePlaceBid();
+  const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
   const [bidAmount, setBidAmount] = useState("");
   const [wasExtended, setWasExtended] = useState(false);
 
   const minBid = Number(lot.current_price) + Number(lot.min_bid_increment);
+  const currentBidAmount = parseCurrencyInput(bidAmount);
+  const balance = wallet ? Number(wallet.balance) : 0;
+  const hasInsufficientBalance = bidAmount && currentBidAmount > balance;
 
   // Reset extended animation after a few seconds
   useEffect(() => {
@@ -32,22 +55,6 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
       return () => clearTimeout(timer);
     }
   }, [wasExtended]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const parseCurrencyInput = (value: string): number => {
-    // Remove currency symbol, dots (thousand separators), and convert comma to dot
-    const cleaned = value
-      .replace(/[R$\s]/g, "")
-      .replace(/\./g, "")
-      .replace(",", ".");
-    return parseFloat(cleaned) || 0;
-  };
 
   const handleBid = async () => {
     if (!user) {
@@ -70,6 +77,16 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
       return;
     }
 
+    // Frontend validation for insufficient balance
+    if (amount > balance) {
+      toast({
+        title: "Saldo insuficiente",
+        description: `Seu saldo é ${formatCurrency(balance)}. Recarregue sua carteira.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const result = await placeBid(lot.id, amount);
 
     if (result.success) {
@@ -83,6 +100,7 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
       }
 
       setBidAmount("");
+      refetchWallet(); // Refresh wallet balance after successful bid
       onBidPlaced?.();
     } else {
       toast({
@@ -94,7 +112,7 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !loading && bidAmount) {
+    if (e.key === "Enter" && !loading && bidAmount && !hasInsufficientBalance) {
       handleBid();
     }
   };
@@ -130,6 +148,39 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
         </div>
       )}
 
+      {/* Wallet balance display */}
+      {user && (
+        <div className="flex items-center justify-between bg-muted/50 px-3 py-2 rounded-md">
+          <div className="flex items-center gap-2 text-sm">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Seu saldo:</span>
+            {walletLoading ? (
+              <Skeleton className="h-4 w-20" />
+            ) : (
+              <span className={cn(
+                "font-medium tabular-nums",
+                hasInsufficientBalance ? "text-destructive" : "text-foreground"
+              )}>
+                {formatCurrency(balance)}
+              </span>
+            )}
+          </div>
+          <Link to="/wallet">
+            <Button variant="ghost" size="sm" className="h-7 text-xs">
+              Recarregar
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Insufficient balance warning */}
+      {hasInsufficientBalance && (
+        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+          <AlertCircle className="h-4 w-4" />
+          <span>Saldo insuficiente para este lance.</span>
+        </div>
+      )}
+
       {/* Current price and minimum bid */}
       <div className="flex items-center justify-between">
         <div>
@@ -155,13 +206,16 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
             value={bidAmount}
             onChange={(e) => setBidAmount(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="text-lg h-12 font-medium"
+            className={cn(
+              "text-lg h-12 font-medium",
+              hasInsufficientBalance && "border-destructive focus-visible:ring-destructive"
+            )}
             disabled={loading}
           />
         </div>
         <Button
           onClick={handleBid}
-          disabled={loading || !bidAmount}
+          disabled={loading || !bidAmount || hasInsufficientBalance}
           size="lg"
           className="h-12 px-6 gap-2"
         >
