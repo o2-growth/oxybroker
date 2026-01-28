@@ -1,111 +1,104 @@
 
 
-# Plano: Tela de Gestão de Usuários (Admin)
+# Plano: Corrigir Criação de Usuários (Admin)
 
-## Resumo
-Criar uma nova página administrativa para gerenciamento de usuários, acessível apenas para administradores, seguindo o padrão visual "Oxy Hacker" e os padrões existentes nas páginas admin.
+## Problema Identificado
 
----
+O código atual usa `supabase.auth.signUp()` no cliente para criar usuários. Isso causa dois problemas:
 
-## Funcionalidades
+1. **Login automático**: O `signUp()` automaticamente faz login com o novo usuário, substituindo a sessão do admin
+2. **Usuário não aparece**: Após o reload, o admin foi deslogado e o novo usuário (sem permissão admin) é redirecionado
 
-### Listagem de Usuários
-- Tabela com todos os usuários do sistema
-- Colunas: Nome, Email, Papel (Role), Categoria, Data de Criação
-- Indicador visual do papel do usuário (badge colorido)
-- Ordenação por nome/data
+## Solução
 
-### Edição de Usuário
-- Modal para editar perfil do usuário
-- Campos editáveis:
-  - Nome completo
-  - Papel (admin, master_franquia, franquia, oxy_hacker)
-  - Categoria de Franquia (para franquias)
-- Validação: Admin não pode rebaixar a si mesmo
+Criar uma **Edge Function** que usa a **Admin API** do Supabase para criar usuários sem afetar a sessão do admin.
 
-### Busca e Filtros
-- Campo de busca por nome/email
-- Filtro por papel (role)
+```text
+Cliente (Admin)                   Edge Function                    Supabase Auth
+      |                                 |                                |
+      |-- POST /create-user ----------->|                                |
+      |   {email, password, name, role} |                                |
+      |                                 |-- admin.auth.createUser() ---->|
+      |                                 |<-- user created ---------------|
+      |                                 |                                |
+      |                                 |-- INSERT profiles ------------->
+      |                                 |-- INSERT user_roles ----------->
+      |                                 |-- INSERT wallets -------------->
+      |<-- {success: true, user} -------|                                |
+      |                                 |                                |
+   (sessão admin mantida)               
+```
 
 ---
 
 ## Arquivos a Criar/Modificar
 
-### Novos Arquivos
+### Novo Arquivo
 | Arquivo | Descrição |
 |---------|-----------|
-| `src/pages/admin/AdminUsers.tsx` | Página principal de gestão de usuários |
-| `src/hooks/useUsers.ts` | Hook para buscar e atualizar usuários |
+| `supabase/functions/create-user/index.ts` | Edge Function para criar usuário via Admin API |
 
 ### Arquivos a Modificar
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/App.tsx` | Adicionar rota `/admin/users` |
-| `src/components/layout/Sidebar.tsx` | Adicionar link "Usuários" no menu admin |
+| `src/pages/admin/AdminUsers.tsx` | Substituir `signUp()` por chamada à Edge Function |
+| `src/hooks/useUsers.ts` | Adicionar função `createUser` que chama a Edge Function |
 
 ---
 
 ## Detalhes Técnicos
 
-### Estrutura do Hook `useUsers.ts`
+### Edge Function `create-user`
+
+A função irá:
+1. Verificar se o chamador é admin (via JWT)
+2. Usar `supabaseAdmin.auth.admin.createUser()` para criar o usuário
+3. Configurar `email_confirm: true` para auto-confirmar o email
+4. Atualizar `profiles`, `user_roles` e `wallets` com os dados corretos
+
+### Atualização do Hook `useUsers.ts`
+
+Adicionar função:
 ```text
-useUsers()
-├── fetchUsers() -> SELECT profiles.*, franchise_categories.name
-├── updateUser(id, data) -> UPDATE profiles SET role, franchise_category_id
-└── Estados: users, loading, error
+createUser(data: CreateUserData)
+├── Chamar Edge Function /create-user
+├── Verificar resposta
+├── Exibir toast de sucesso/erro
+└── Chamar fetchUsers() para atualizar lista
 ```
 
-### Componente AdminUsers.tsx
-- Usa `useRoleGuard("admin")` para proteção de rota
-- Segue padrão de `AdminCategories.tsx` (Dialog para edição)
-- Componentes utilizados:
-  - `AppShell` (layout)
-  - `Table` (listagem)
-  - `Dialog` (edição)
-  - `Select` (escolha de role e categoria)
-  - `Badge` (indicador de papel)
-  - `Input` (busca)
+### Atualização do `AdminUsers.tsx`
 
-### Mapeamento de Cores por Papel
+Alterar `handleCreate`:
 ```text
-admin        -> bg-red-500/10 text-red-500
-master_franquia -> bg-purple-500/10 text-purple-500
-franquia     -> bg-blue-500/10 text-blue-500
-oxy_hacker   -> bg-green-500/10 text-green-500
+handleCreate()
+├── Validar campos
+├── Chamar createUser() do hook (não mais signUp)
+├── Fechar modal
+├── Lista atualiza automaticamente (sem reload)
 ```
-
-### Atualização Sincronizada
-Ao alterar o role de um usuário:
-1. Atualizar `profiles.role`
-2. Atualizar `user_roles.role` (manter consistência)
 
 ---
 
 ## Segurança
 
-### Proteção de Rota
-- `useRoleGuard("admin")` redireciona não-admins para `/marketplace`
+### Proteção da Edge Function
+- Verificar token JWT do chamador
+- Validar que o chamador possui role `admin`
+- Usar `SUPABASE_SERVICE_ROLE_KEY` apenas no servidor
 
-### RLS Existente
-As políticas já configuradas garantem:
-- Apenas admins podem SELECT todos os profiles (`profiles_select_admin`)
-- Apenas admins podem UPDATE profiles de outros usuários (`profiles_update_admin`)
-- Apenas admins podem modificar `user_roles` (`user_roles_update_admin`)
-
-### Validação no Cliente
-- Admin não pode alterar seu próprio papel
-- Exibir confirmação antes de promover/rebaixar usuários
+### Validações
+- Email obrigatório e formato válido
+- Senha com mínimo de 6 caracteres
+- Nome obrigatório
+- Role deve ser um valor válido do enum
 
 ---
 
-## Fluxo de Navegação
+## Benefícios
 
-```text
-Sidebar (Admin)
-├── Configurações (/admin/settings)
-├── Usuários (/admin/users)      <- NOVO
-├── Categorias (/admin/categories)
-├── Ativos (/admin/assets)
-└── Lotes (/admin/lots)
-```
+1. **Sessão preservada**: Admin continua logado após criar usuário
+2. **Usuário confirmado**: Email já confirmado, pode fazer login imediatamente
+3. **Lista atualizada**: Sem reload, lista atualiza via `fetchUsers()`
+4. **Segurança**: Criação apenas via Edge Function autenticada
 
