@@ -1,251 +1,192 @@
 
-# Plano: Tela de Leiloes em Participacao e Resumo no Marketplace
+
+# Plano: Flexibilizar Lances Adicionais
 
 ## Resumo
 
-Criar uma nova pagina `/my-auctions` para usuarios acompanharem todos os leiloes em que estao participando, e adicionar um painel lateral no Marketplace com um resumo dessas participacoes.
+Modificar a regra de lances para que, depois que um usuario ja tenha dado pelo menos um lance no leilao, ele possa dar lances de qualquer valor (desde que seja maior que o preco atual). O lance minimo com incremento obrigatorio so se aplica ao primeiro lance do usuario.
 
 ---
 
-## Novas Funcionalidades
+## Regra Atual vs Nova Regra
 
-### 1. Pagina "Meus Leiloes" (`/my-auctions`)
-
-| Elemento | Descricao |
-|----------|-----------|
-| Lista de leiloes ativos | Lotes onde o usuario deu pelo menos 1 lance |
-| Status por lote | Badge "Ganhando" ou "Perdendo" |
-| Valor do maior lance do usuario | Exibido por lote |
-| Tempo restante | Countdown timer para lotes live |
-| Acoes | Link para ver detalhes do lote |
-| Separacao por status | Lotes ativos primeiro, encerrados abaixo |
-
-### 2. Painel de Resumo no Marketplace
-
-| Elemento | Descricao |
-|----------|-----------|
-| Posicao | Sidebar direita (desktop) / Card colapsavel (mobile) |
-| Conteudo | Ate 5 leiloes com participacao ativa |
-| Informacoes por lote | Nome, status (ganhando/perdendo), preco atual |
-| Link "Ver todos" | Direciona para `/my-auctions` |
-| Visibilidade | Apenas para usuarios autenticados |
-
----
-
-## Arquitetura
-
-```text
-+----------------------------------------------------------+
-|  Marketplace Header                     [ViewToggle]      |
-+----------------------------------------------------------+
-|              Stats Cards                                  |
-+----------------------------------------------------------+
-|  Filters (horizontal)                                     |
-+----------------------------------------------------------+
-|                              |                            |
-|   Lotes Grid/List           |   Minhas Participacoes     |
-|   (conteudo principal)       |   (sidebar direita)        |
-|                              |   - Lote 1 [Ganhando]      |
-|                              |   - Lote 2 [Perdendo]      |
-|                              |   [Ver todos ->]           |
-|                              |                            |
-+----------------------------------------------------------+
-```
-
----
-
-## Arquivos a Criar
-
-### `src/pages/MyAuctions.tsx`
-
-Pagina completa para visualizar todos os leiloes com participacao:
-
-- Buscar bids do usuario autenticado
-- Agrupar por lot_id
-- Para cada lote, determinar status (ganhando/perdendo)
-- Separar entre ativos (live) e encerrados (ended)
-- Exibir em lista com detalhes
-
-### `src/hooks/useMyAuctions.ts`
-
-Hook para buscar leiloes com participacao:
-
-```text
-1. Buscar todos os bids do usuario
-2. Extrair lot_ids unicos
-3. Buscar dados dos lotes correspondentes
-4. Para cada lote, buscar o maior bid geral
-5. Determinar se usuario esta ganhando ou perdendo
-6. Retornar dados enriquecidos
-```
-
-Interface de retorno:
-```text
-interface MyAuctionItem {
-  lot: Lot;
-  myHighestBid: Bid;
-  lotHighestBid: Bid;
-  status: 'winning' | 'losing';
-  isActive: boolean;
-}
-```
-
-### `src/components/marketplace/MyAuctionsSummary.tsx`
-
-Painel lateral para o Marketplace:
-
-- Exibir ate 5 participacoes ativas
-- Badge colorido de status
-- Preco atual do lote
-- Timer de encerramento (se live)
-- Botao "Ver todos" -> `/my-auctions`
+| Cenario | Regra Atual | Nova Regra |
+|---------|-------------|------------|
+| Primeiro lance do usuario no lote | >= current_price + min_bid_increment | >= current_price + min_bid_increment |
+| Lances subsequentes do mesmo usuario | >= current_price + min_bid_increment | > current_price (qualquer valor) |
 
 ---
 
 ## Arquivos a Modificar
 
-### `src/App.tsx`
+### 1. Funcao SQL `place_bid_atomic`
 
-Adicionar nova rota:
+Alterar a validacao do valor minimo para verificar se o usuario ja deu lances anteriores:
+
 ```text
-<Route path="/my-auctions" element={<MyAuctions />} />
+Logica atual:
+  IF p_amount < (current_price + min_bid_increment) THEN
+    RETURN erro
+
+Nova logica:
+  1. Verificar se usuario ja tem bids neste lote
+  2. Se NAO tem bids anteriores:
+     - Exigir p_amount >= current_price + min_bid_increment
+  3. Se JA tem bids anteriores:
+     - Exigir apenas p_amount > current_price
 ```
 
-### `src/components/layout/Sidebar.tsx`
+### 2. Frontend `BidPanel.tsx`
 
-Adicionar item de menu:
+Alterar a logica de `minBid` para considerar se usuario ja deu lances:
+
 ```text
-{ title: "Meus Leilões", url: "/my-auctions", icon: Target }
+Logica atual:
+  const minBid = current_price + min_bid_increment
+
+Nova logica:
+  1. Verificar se usuario ja tem bids neste lote (via prop ou query)
+  2. Se JA tem bids: minBid = current_price + 0.01 (qualquer valor acima)
+  3. Se NAO tem bids: minBid = current_price + min_bid_increment
 ```
 
-Posicao: Logo abaixo de "Marketplace"
+### 3. Hook ou prop para status de participacao
 
-### `src/pages/Marketplace.tsx`
+Precisamos saber se o usuario ja tem bids no lote. Opcoes:
 
-Adicionar layout com sidebar direita:
+**Opcao A**: Passar via prop do `LotDetail.tsx` (ja busca bids)
+**Opcao B**: Criar query simples no `BidPanel` para verificar
 
-Desktop:
-```text
-<div className="flex gap-6">
-  <div className="flex-1">
-    {/* Lotes existentes */}
-  </div>
-  <aside className="w-80 shrink-0 hidden lg:block">
-    <MyAuctionsSummary />
-  </aside>
-</div>
-```
-
-Mobile:
-- Card colapsavel acima dos lotes ou
-- Omitir (usuario acessa via menu)
+Recomendacao: **Opcao A** - reutilizar dados ja carregados
 
 ---
 
 ## Detalhes Tecnicos
 
-### Query para buscar participacoes
+### Migracao SQL
 
-```text
-1. SELECT DISTINCT lot_id FROM bids WHERE user_id = auth.uid()
+```sql
+CREATE OR REPLACE FUNCTION public.place_bid_atomic(
+  p_lot_id uuid, 
+  p_user_id uuid, 
+  p_amount numeric
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_lot RECORD;
+  v_user_has_previous_bids boolean;
+  v_min_required_amount numeric;
+  -- ... outras variaveis existentes
+BEGIN
+  -- ... validacoes existentes (lot exists, is live, not ended)
 
-2. Para cada lot_id:
-   - SELECT * FROM lots WHERE id = lot_id
-   - SELECT * FROM bids WHERE lot_id = lot_id ORDER BY amount DESC LIMIT 1
-   - SELECT * FROM bids WHERE lot_id = lot_id AND user_id = auth.uid() 
-     ORDER BY amount DESC LIMIT 1
+  -- NOVO: Verificar se usuario ja tem lances neste lote
+  SELECT EXISTS (
+    SELECT 1 FROM public.bids 
+    WHERE lot_id = p_lot_id AND user_id = p_user_id
+  ) INTO v_user_has_previous_bids;
+
+  -- MODIFICADO: Calcular valor minimo baseado em participacao anterior
+  IF v_user_has_previous_bids THEN
+    -- Usuario ja participa: pode dar qualquer valor acima do atual
+    v_min_required_amount := v_lot.current_price + 0.01;
+    
+    IF p_amount <= v_lot.current_price THEN
+      RETURN jsonb_build_object(
+        'error_code', 'BID_TOO_LOW',
+        'error_message', format('Seu lance deve ser maior que %s', 
+          to_char(v_lot.current_price, 'FM999G999G999D00'))
+      );
+    END IF;
+  ELSE
+    -- Primeiro lance: exigir incremento minimo
+    v_min_required_amount := v_lot.current_price + v_lot.min_bid_increment;
+    
+    IF p_amount < v_min_required_amount THEN
+      RETURN jsonb_build_object(
+        'error_code', 'BID_TOO_LOW',
+        'error_message', format('Lance mínimo é %s', 
+          to_char(v_min_required_amount, 'FM999G999G999D00'))
+      );
+    END IF;
+  END IF;
+
+  -- ... resto da funcao permanece igual
+END;
+$$;
 ```
 
-Otimizacao: Fazer em queries batch para evitar N+1
+### Alteracoes no Frontend
 
-### Realtime Updates
+**LotDetail.tsx** - Passar info de participacao:
 
-Subscrever em `bids` para atualizar status automaticamente quando:
-- Novo lance e feito no lote
-- Lote muda de status (live -> ended)
+```typescript
+// Verificar se usuario atual ja tem bids
+const userHasBids = bids?.some(bid => bid.user_id === user?.id) ?? false;
 
-### RLS
+// Passar para BidPanel
+<BidPanel 
+  lot={lot} 
+  userHasBids={userHasBids} 
+  onBidPlaced={refetch} 
+/>
+```
 
-As queries usarao as policies existentes:
-- `bids_select_authenticated`: Usuario pode ver todos os bids
-- `lots` SELECT: Usuario pode ver lotes nao-draft
+**BidPanel.tsx** - Ajustar calculo do minBid:
+
+```typescript
+interface BidPanelProps {
+  lot: Lot;
+  userHasBids?: boolean; // NOVO
+  onBidPlaced?: () => void;
+}
+
+// MODIFICADO: Calcular lance minimo
+const minBid = userHasBids 
+  ? Number(lot.current_price) + 0.01  // Qualquer valor acima
+  : Number(lot.current_price) + Number(lot.min_bid_increment);  // Primeiro lance
+
+// Ajustar label exibido
+const minBidLabel = userHasBids 
+  ? "Mínimo: qualquer valor acima do atual"
+  : `Lance mínimo: ${formatCurrency(minBid)}`;
+```
 
 ---
 
-## Componentes UI
+## UX Considerations
 
-### Card de Participacao
+### Para usuarios que ja deram lance
 
-```text
-+----------------------------------------+
-| [Ganhando] Lote Premium Tech           |
-| Lance: R$ 6.000,00    Encerra: 1d 12h  |
-| [Ver detalhes ->]                      |
-+----------------------------------------+
-```
+1. Mostrar label diferente: "Voce ja participa deste leilao"
+2. Placeholder do input: Mostrar preco atual + R$ 0,01
+3. Botoes de incremento rapido: Manter, mas com base no preco atual
 
-### Painel do Marketplace
+### Para primeiro lance
 
-```text
-+------------------------------------+
-|  Minhas Participacoes (3)          |
-+------------------------------------+
-|  [V] Lote Tech - R$ 6.000          |
-|  [X] Lote Industria - R$ 10.000    |
-|  [V] Lote Saude - R$ 3.500         |
-|                                    |
-|  [Ver todos os leiloes ->]         |
-+------------------------------------+
-```
-
-Legenda: [V] = Ganhando (verde), [X] = Perdendo (amarelo/vermelho)
+1. Manter comportamento atual
+2. Exigir incremento minimo
 
 ---
 
-## Estados Vazios
+## Resumo das Alteracoes
 
-### Pagina `/my-auctions`
-
-Se usuario nao tem participacoes:
-```text
-"Voce ainda nao participou de nenhum leilao.
-Visite o Marketplace para dar seus primeiros lances."
-[Ir para Marketplace]
-```
-
-### Painel do Marketplace
-
-Se usuario nao tem participacoes:
-- Nao exibir o painel (para nao poluir a interface)
-- Ou exibir com mensagem: "Participe de leiloes para acompanhar aqui"
-
----
-
-## Mobile
-
-- Pagina `/my-auctions`: Lista vertical responsiva
-- Painel no Marketplace: Omitido por padrao, usuario acessa via menu lateral
-
----
-
-## Resumo de Implementacao
-
-| Arquivo | Tipo | Descricao |
+| Arquivo | Tipo | Alteracao |
 |---------|------|-----------|
-| `src/pages/MyAuctions.tsx` | Criar | Pagina completa de participacoes |
-| `src/hooks/useMyAuctions.ts` | Criar | Hook para buscar dados |
-| `src/components/marketplace/MyAuctionsSummary.tsx` | Criar | Painel lateral |
-| `src/App.tsx` | Editar | Adicionar rota |
-| `src/components/layout/Sidebar.tsx` | Editar | Adicionar item de menu |
-| `src/pages/Marketplace.tsx` | Editar | Adicionar sidebar direita |
+| Migracao SQL | Criar | Atualizar funcao `place_bid_atomic` |
+| `src/pages/LotDetail.tsx` | Editar | Passar `userHasBids` para BidPanel |
+| `src/components/auction/BidPanel.tsx` | Editar | Calcular minBid dinamico |
 
 ---
 
-## Fluxo do Usuario
+## Testes Necessarios
 
-1. Usuario da lance em um lote
-2. No Marketplace, painel lateral mostra participacao
-3. Usuario ve badge "Ganhando" ou "Perdendo"
-4. Clica em "Ver todos" para ir a `/my-auctions`
-5. Na pagina dedicada, ve historico completo com lotes ativos e encerrados
-6. Recebe atualizacoes em tempo real quando outro usuario da lance
+1. Primeiro lance de usuario novo: deve exigir incremento minimo
+2. Segundo lance do mesmo usuario: aceitar qualquer valor > preco atual
+3. Lance muito baixo (abaixo do preco atual): rejeitar
+4. Validacao funciona tanto no frontend quanto no backend
+
