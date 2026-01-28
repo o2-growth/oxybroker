@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -189,6 +191,56 @@ export function useUsers() {
     }
   };
 
+  const createUser = async (data: CreateUserData) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({
+          title: "Erro de autenticação",
+          description: "Você precisa estar logado para criar usuários.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          full_name: data.full_name,
+          role: data.role,
+          franchise_category_id: data.franchise_category_id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao criar usuário");
+      }
+
+      toast({
+        title: "Usuário criado",
+        description: `O usuário ${data.full_name} foi criado com sucesso.`,
+      });
+
+      await fetchUsers();
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -197,6 +249,7 @@ export function useUsers() {
     users,
     loading,
     fetchUsers,
+    createUser,
     updateUser,
     suspendUser,
     deleteUser,
