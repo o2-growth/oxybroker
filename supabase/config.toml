@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.process-return]
 verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false

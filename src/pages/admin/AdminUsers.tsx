@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
-import { useUsers, UserProfile, UpdateUserData } from "@/hooks/useUsers";
+import { useUsers, UserProfile, UpdateUserData, CreateUserData } from "@/hooks/useUsers";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -84,7 +85,8 @@ const roleColors: Record<AppRole, string> = {
 export default function AdminUsers() {
   useRoleGuard("admin");
   const { user } = useAuth();
-  const { users, loading, updateUser, suspendUser, deleteUser } = useUsers();
+  const { toast } = useToast();
+  const { users, loading, createUser, updateUser, suspendUser, deleteUser } = useUsers();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<AppRole | "all">("all");
@@ -173,40 +175,35 @@ export default function AdminUsers() {
   };
 
   const handleCreate = async () => {
-    if (!createData.email || !createData.password || !createData.full_name) return;
+    if (!createData.email || !createData.password || !createData.full_name) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha email, senha e nome completo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (createData.password.length < 6) {
+      toast({
+        title: "Senha muito curta",
+        description: "A senha deve ter pelo menos 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setCreating(true);
-    try {
-      // Create user via Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: createData.email,
-        password: createData.password,
-        options: {
-          data: {
-            full_name: createData.full_name,
-          },
-        },
-      });
+    const success = await createUser({
+      email: createData.email,
+      password: createData.password,
+      full_name: createData.full_name,
+      role: createData.role,
+      franchise_category_id: createData.franchise_category_id,
+    });
+    setCreating(false);
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Update profile with role and category
-        await supabase
-          .from("profiles")
-          .update({
-            role: createData.role,
-            franchise_category_id: createData.franchise_category_id,
-          })
-          .eq("id", authData.user.id);
-
-        // Update user_roles
-        await supabase
-          .from("user_roles")
-          .update({ role: createData.role })
-          .eq("user_id", authData.user.id);
-      }
-
+    if (success) {
       setCreateDialogOpen(false);
       setCreateData({
         email: "",
@@ -215,13 +212,6 @@ export default function AdminUsers() {
         role: "franquia",
         franchise_category_id: null,
       });
-
-      // Refresh user list
-      window.location.reload();
-    } catch (error: any) {
-      console.error("Error creating user:", error);
-    } finally {
-      setCreating(false);
     }
   };
 
