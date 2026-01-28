@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useWallet } from "@/hooks/useWallet";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,9 @@ import {
   Receipt,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { TopUpModal } from "@/components/wallet/TopUpModal";
+import { toast } from "@/hooks/use-toast";
 
 const transactionTypeConfig = {
   topup: {
@@ -49,14 +51,38 @@ const transactionTypeConfig = {
 
 export default function WalletPage() {
   const { user, loading: authLoading } = useAuth();
-  const { wallet, transactions, loading, error } = useWallet();
+  const { wallet, transactions, loading, error, refetch } = useWallet();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [topUpOpen, setTopUpOpen] = useState(false);
 
+  // Handle authentication redirect
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth/login");
     }
   }, [user, authLoading, navigate]);
+
+  // Handle Stripe return query params
+  useEffect(() => {
+    const topupStatus = searchParams.get("topup");
+    if (topupStatus === "success") {
+      toast({
+        title: "Pagamento processado!",
+        description: "Seu saldo será atualizado em instantes.",
+      });
+      setSearchParams({});
+      // Refetch wallet data after a short delay
+      setTimeout(() => refetch(), 2000);
+    } else if (topupStatus === "cancelled") {
+      toast({
+        variant: "destructive",
+        title: "Recarga cancelada",
+        description: "A operação foi cancelada.",
+      });
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams, refetch]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -102,7 +128,7 @@ export default function WalletPage() {
               Gerencie seu saldo e veja seu extrato
             </p>
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setTopUpOpen(true)}>
             <Plus className="h-4 w-4" />
             Adicionar Saldo
           </Button>
@@ -216,6 +242,9 @@ export default function WalletPage() {
             </div>
           )}
         </div>
+
+        {/* TopUp Modal */}
+        <TopUpModal open={topUpOpen} onOpenChange={setTopUpOpen} />
       </div>
     </AppShell>
   );
