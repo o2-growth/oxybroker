@@ -1,198 +1,115 @@
 
 
-# Plano: Implementar Botão de Adicionar Saldo com Stripe Checkout
+# Plano: Corrigir Redirecionamento para Stripe Checkout
 
 ## Problema Identificado
 
-O botão "Adicionar Saldo" na página da Carteira não possui nenhuma funcionalidade - falta o handler `onClick` e a edge function para criar a sessão de checkout do Stripe.
+O checkout do Stripe nao abre porque o `window.location.href` nao funciona corretamente quando a aplicacao esta rodando dentro de um iframe (preview do Lovable). O navegador bloqueia a navegacao para dominios externos por questoes de seguranca.
 
+### Evidencia nos Logs
 ```text
-SITUACAO ATUAL                          OBJETIVO
-                                        
-+------------------+                    +------------------+
-|  Botão Adicionar |                    |  Botão Adicionar |
-|  Saldo           |                    |  Saldo           |
-|  (sem onClick)   |                    |  onClick ---------+
-+------------------+                    +------------------+  |
-                                                              v
-                                        +------------------+  
-                     FALTA              |  Edge Function   |
-                     ----->             |  create-checkout |
-                                        +--------+---------+
-                                                 |
-                                                 v
-                                        +------------------+
-                     JA EXISTE          |  Stripe Checkout |
-                     ----->             |  (pagina Stripe) |
-                                        +--------+---------+
-                                                 |
-                                                 v
-                                        +------------------+
-                     JA EXISTE          |  stripe-webhook  |
-                     ----->             |  (credita saldo) |
-                                        +------------------+
+POST /functions/v1/create-checkout -> Status 200
+Response: { "url": "https://checkout.stripe.com/..." }
+
+>> URL retornada corretamente, mas redirecionamento bloqueado pelo iframe
 ```
 
 ---
 
-## Arquitetura da Solucao
+## Solucao
 
-```text
-1. Usuario clica "Adicionar Saldo"
-            |
-            v
-2. Modal abre para escolher valor
-   [R$ 100] [R$ 250] [R$ 500] [Outro]
-            |
-            v
-3. Frontend chama create-checkout
-   POST /functions/v1/create-checkout
-   { amount: 250 }
-            |
-            v
-4. Edge Function cria sessao Stripe
-   stripe.checkout.sessions.create({
-     mode: 'payment',
-     metadata: { type: 'wallet_topup', user_id: '...' }
-   })
-            |
-            v
-5. Retorna checkout URL
-   { url: 'https://checkout.stripe.com/...' }
-            |
-            v
-6. Frontend redireciona para Stripe
-   window.location.href = url
-            |
-            v
-7. Usuario paga no Stripe
-            |
-            v
-8. Stripe envia webhook (ja existe)
-            |
-            v
-9. Webhook credita saldo (ja existe)
+Modificar o hook `useTopUp.ts` para usar `window.open()` ao inves de `window.location.href`, abrindo o Stripe Checkout em uma nova aba.
+
+### Vantagens desta abordagem
+
+| Aspecto | window.location.href | window.open() |
+|---------|---------------------|---------------|
+| Iframe preview | Bloqueado | Funciona |
+| Producao | Funciona | Funciona |
+| UX | Mesma aba | Nova aba |
+| Popups | Sem bloqueio | Pode ser bloqueado* |
+
+*Nota: `window.open()` chamado dentro de um handler de clique do usuario geralmente nao e bloqueado.
+
+---
+
+## Modificacao no `useTopUp.ts`
+
+**Antes (linha 38)**:
+```typescript
+window.location.href = data.url;
+```
+
+**Depois**:
+```typescript
+// Abre em nova aba para funcionar no iframe de preview
+const checkoutWindow = window.open(data.url, "_blank");
+
+// Fallback: se popup bloqueado, tenta redirecionamento direto
+if (!checkoutWindow || checkoutWindow.closed) {
+  window.location.href = data.url;
+}
 ```
 
 ---
-
-## 1. Criar Edge Function `create-checkout`
-
-| Aspecto | Detalhe |
-|---------|---------|
-| Endpoint | `POST /functions/v1/create-checkout` |
-| Autenticacao | Requer JWT valido |
-| Body | `{ amount: number }` (em BRL, nao centavos) |
-| Retorno | `{ url: string }` |
-
-### Logica
-
-```text
-1. Validar autenticacao (Authorization header)
-2. Validar amount >= 10 e <= 10000
-3. Criar sessao Stripe Checkout:
-   - mode: 'payment'
-   - line_items: produto dinamico com valor
-   - success_url: /wallet?success=true
-   - cancel_url: /wallet?cancelled=true
-   - metadata: { type: 'wallet_topup', user_id: ... }
-4. Retornar URL do checkout
-```
-
----
-
-## 2. Criar Hook `useTopUp`
-
-| Funcao | Descricao |
-|--------|-----------|
-| `createCheckout(amount)` | Chama edge function e redireciona |
-| `loading` | Estado de carregamento |
-
----
-
-## 3. Criar Modal de Recarga
-
-Componente com opcoes pre-definidas e campo personalizado:
-
-| Valor | Botao |
-|-------|-------|
-| R$ 100 | Selecao rapida |
-| R$ 250 | Selecao rapida |
-| R$ 500 | Selecao rapida |
-| R$ 1.000 | Selecao rapida |
-| Outro | Input numerico |
-
----
-
-## 4. Atualizar Pagina Wallet
-
-- Conectar botao ao modal
-- Exibir toast de sucesso/erro apos retorno
-- Detectar query params `?success=true` ou `?cancelled=true`
-
----
-
-## Arquivos a Criar
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `supabase/functions/create-checkout/index.ts` | Edge function para criar sessao Stripe |
-| `src/hooks/useTopUp.ts` | Hook para gerenciar recarga |
-| `src/components/wallet/TopUpModal.tsx` | Modal de selecao de valor |
 
 ## Arquivos a Modificar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/Wallet.tsx` | Adicionar modal, handler do botao, detectar retorno |
+| `src/hooks/useTopUp.ts` | Usar window.open() com fallback para location.href |
 
 ---
 
 ## Detalhes Tecnicos
 
-### Edge Function create-checkout
+### Por que window.open() funciona no iframe
+
+Quando `window.open()` e chamado com `_blank`, o navegador abre uma nova aba que esta fora do contexto do iframe, permitindo navegar para qualquer dominio.
+
+### Seguranca de Popups
+
+Como a chamada `window.open()` acontece dentro de um handler de clique do usuario (botao "Continuar para pagamento"), o navegador reconhece como uma acao intencional e nao bloqueia.
 
 ```text
-Validacoes:
-- amount >= 10 (minimo R$ 10)
-- amount <= 10000 (maximo R$ 10.000)
-- Usuario autenticado
-
-Stripe Checkout Session:
-- mode: 'payment'
-- payment_method_types: ['card', 'boleto', 'pix']
-- currency: 'brl'
-- line_items: [{ price_data: {...}, quantity: 1 }]
-- metadata: { type: 'wallet_topup', user_id: '...' }
-- success_url: URL do app + /wallet?topup=success
-- cancel_url: URL do app + /wallet?topup=cancelled
-```
-
-### Tratamento de Retorno
-
-Quando usuario voltar do Stripe, detectar query params:
-
-```text
-?topup=success  -> Toast "Pagamento processado! Saldo sera atualizado em instantes"
-?topup=cancelled -> Toast "Recarga cancelada"
+Usuario clica botao
+        |
+        v
+handleSubmit() executa
+        |
+        v
+createCheckout() chama API
+        |
+        v
+window.open() dentro do mesmo stack de eventos
+        |
+        v
+Navegador permite (nao e popup malicioso)
 ```
 
 ---
 
-## Seguranca
+## Consideracoes de UX
 
-- JWT obrigatorio na edge function
-- Validacao de valores minimo/maximo
-- Metadata com user_id do JWT (nao do request body)
-- Webhook ja tem idempotencia implementada
+Apos a mudanca, o fluxo sera:
+
+```text
+1. Usuario clica "Continuar para pagamento"
+2. Nova aba abre com Stripe Checkout
+3. Usuario completa pagamento
+4. Stripe redireciona para /wallet?topup=success na nova aba
+5. Toast de sucesso exibido
+6. Usuario pode fechar a aba original do modal
+```
+
+O modal na aba original continuara mostrando "Processando..." ate o usuario voltar. Podemos melhorar isso futuramente com polling ou WebSocket, mas por ora o fluxo funciona.
 
 ---
 
 ## Ordem de Implementacao
 
-1. Criar edge function `create-checkout`
-2. Criar hook `useTopUp`
-3. Criar componente `TopUpModal`
-4. Integrar na pagina Wallet
-5. Testar fluxo completo
+1. Modificar `useTopUp.ts` para usar `window.open()`
+2. Adicionar fallback para `window.location.href`
+3. Resetar estado de loading apos abrir a aba (para UX melhor)
+4. Testar no preview
 
