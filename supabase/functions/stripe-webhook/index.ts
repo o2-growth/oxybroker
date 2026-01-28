@@ -26,18 +26,29 @@ serve(async (req) => {
   const signature = req.headers.get("stripe-signature");
   const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 
+  // SECURITY: Require webhook secret - no bypass allowed
+  if (!webhookSecret) {
+    console.error("❌ STRIPE_WEBHOOK_SECRET not configured");
+    return new Response(
+      JSON.stringify({ error: "Webhook secret not configured" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  if (!signature) {
+    console.error("❌ Missing stripe-signature header");
+    return new Response(
+      JSON.stringify({ error: "Missing signature" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   let event: Stripe.Event;
   const body = await req.text();
 
   try {
-    // Verify webhook signature if secret is configured
-    if (webhookSecret && signature) {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } else {
-      // For development/testing without signature verification
-      event = JSON.parse(body);
-      console.warn("⚠️ Webhook signature verification skipped");
-    }
+    // Always verify webhook signature - no bypass
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return new Response(JSON.stringify({ error: "Invalid signature" }), {
@@ -196,8 +207,8 @@ async function processStripeEvent(
       // Convert from cents to currency units
       const amount = amountTotal / 100;
 
-      // Credit wallet
-      const { error: walletError } = await supabase.rpc("credit_wallet", {
+      // Credit wallet using atomic function - no fallback, fail fast
+      const { data: creditResult, error: walletError } = await supabase.rpc("credit_wallet", {
         p_user_id: userId,
         p_amount: amount,
         p_description: `Recarga via Stripe - ${session.id}`,
@@ -206,37 +217,11 @@ async function processStripeEvent(
       });
 
       if (walletError) {
-        // Fallback: direct update if RPC doesn't exist
-        const { data: wallet, error: fetchError } = await supabase
-          .from("wallets")
-          .select("balance")
-          .eq("user_id", userId)
-          .single();
+        return { success: false, error: `Failed to credit wallet: ${walletError.message}` };
+      }
 
-        if (fetchError) {
-          return { success: false, error: `Failed to fetch wallet: ${fetchError.message}` };
-        }
-
-        const newBalance = (wallet?.balance || 0) + amount;
-
-        const { error: updateError } = await supabase
-          .from("wallets")
-          .update({ balance: newBalance, updated_at: new Date().toISOString() })
-          .eq("user_id", userId);
-
-        if (updateError) {
-          return { success: false, error: `Failed to update wallet: ${updateError.message}` };
-        }
-
-        // Record transaction
-        await supabase.from("wallet_transactions").insert({
-          user_id: userId,
-          type: "topup",
-          amount,
-          description: `Recarga via Stripe - ${session.id}`,
-          reference_type: "stripe_checkout",
-          reference_id: session.id,
-        });
+      if (creditResult?.error_code) {
+        return { success: false, error: creditResult.error_message };
       }
 
       console.log(`💰 Credited ${amount} to wallet for user ${userId}`);
