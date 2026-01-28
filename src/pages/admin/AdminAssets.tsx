@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useAssets } from "@/hooks/useAssets";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -82,14 +83,24 @@ const emptyFormData = {
   base_score: "0",
 };
 
+const PAGE_SIZE = 10;
+
 export default function AdminAssets() {
   const { loading: authLoading } = useRoleGuard("admin");
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, typeFilter]);
+
   const {
     assets,
+    totalCount,
+    totalPages,
     isLoading,
     createAsset,
     updateAsset,
@@ -98,7 +109,7 @@ export default function AdminAssets() {
     isCreating,
     isUpdating,
     isDeleting,
-  } = useAssets({ search, status: statusFilter, type: typeFilter });
+  } = useAssets({ search, status: statusFilter, type: typeFilter, page, pageSize: PAGE_SIZE });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -253,7 +264,7 @@ export default function AdminAssets() {
               <Skeleton key={i} className="h-20" />
             ))}
           </div>
-        ) : assets.length === 0 ? (
+        ) : assets.length === 0 && totalCount === 0 ? (
           <div className="oxy-card p-8 text-center">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-semibold text-lg mb-2">Nenhum ativo</h3>
@@ -262,99 +273,113 @@ export default function AdminAssets() {
             </p>
           </div>
         ) : (
-          <div className="oxy-card overflow-hidden">
-            <table className="oxy-table">
-              <thead>
-                <tr>
-                  <th>Título</th>
-                  <th>Tipo</th>
-                  <th>Setor</th>
-                  <th>Localização</th>
-                  <th>Score</th>
-                  <th>Status</th>
-                  <th className="w-12">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assets.map((asset) => {
-                  const status = statusConfig[asset.status];
+          <>
+            <div className="oxy-card overflow-hidden">
+              <table className="oxy-table">
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Tipo</th>
+                    <th>Setor</th>
+                    <th>Localização</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th className="w-12">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assets.map((asset) => {
+                    const status = statusConfig[asset.status];
 
-                  return (
-                    <tr key={asset.id}>
-                      <td className="font-medium">{asset.title}</td>
-                      <td>
-                        <Badge variant="outline" className="capitalize">
-                          {assetTypeLabels[asset.asset_type]}
-                        </Badge>
-                      </td>
-                      <td>
-                        <span className="flex items-center gap-1 text-sm">
-                          <Building className="h-3.5 w-3.5" />
-                          {asset.sector || "-"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {asset.location_city
-                            ? `${asset.location_city}, ${asset.location_state}`
-                            : "-"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="font-mono">{asset.base_score}</span>
-                      </td>
-                      <td>
-                        <Badge className={status.className}>{status.label}</Badge>
-                      </td>
-                      <td>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover">
-                            {isEditable(asset) && (
-                              <DropdownMenuItem onClick={() => handleOpenEdit(asset)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Editar
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            {Object.entries(statusConfig)
-                              .filter(([key]) => key !== asset.status)
-                              .map(([key, { label }]) => (
-                                <DropdownMenuItem
-                                  key={key}
-                                  onClick={() =>
-                                    handleStatusChange(asset, key as AssetStatus)
-                                  }
-                                >
-                                  Marcar como {label}
+                    return (
+                      <tr key={asset.id}>
+                        <td className="font-medium">{asset.title}</td>
+                        <td>
+                          <Badge variant="outline" className="capitalize">
+                            {assetTypeLabels[asset.asset_type]}
+                          </Badge>
+                        </td>
+                        <td>
+                          <span className="flex items-center gap-1 text-sm">
+                            <Building className="h-3.5 w-3.5" />
+                            {asset.sector || "-"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="flex items-center gap-1 text-sm">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {asset.location_city
+                              ? `${asset.location_city}, ${asset.location_state}`
+                              : "-"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="font-mono">{asset.base_score}</span>
+                        </td>
+                        <td>
+                          <Badge className={status.className}>{status.label}</Badge>
+                        </td>
+                        <td>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover">
+                              {isEditable(asset) && (
+                                <DropdownMenuItem onClick={() => handleOpenEdit(asset)}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Editar
                                 </DropdownMenuItem>
-                              ))}
-                            {asset.status === "draft" && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenDelete(asset)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                              )}
+                              <DropdownMenuSeparator />
+                              {Object.entries(statusConfig)
+                                .filter(([key]) => key !== asset.status)
+                                .map(([key, { label }]) => (
+                                  <DropdownMenuItem
+                                    key={key}
+                                    onClick={() =>
+                                      handleStatusChange(asset, key as AssetStatus)
+                                    }
+                                  >
+                                    Marcar como {label}
+                                  </DropdownMenuItem>
+                                ))}
+                              {asset.status === "draft" && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenDelete(asset)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalCount > PAGE_SIZE && (
+              <DataTablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                isLoading={isLoading}
+              />
+            )}
+          </>
         )}
       </div>
 

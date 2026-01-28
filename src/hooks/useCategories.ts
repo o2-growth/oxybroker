@@ -7,22 +7,36 @@ type Category = Database["public"]["Tables"]["franchise_categories"]["Row"];
 type CategoryInsert = Database["public"]["Tables"]["franchise_categories"]["Insert"];
 type CategoryUpdate = Database["public"]["Tables"]["franchise_categories"]["Update"];
 
-export function useCategories() {
+interface UseCategoriesOptions {
+  page?: number;
+  pageSize?: number;
+}
+
+export function useCategories(options: UseCategoriesOptions = {}) {
+  const { page = 1, pageSize = 12 } = options;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: categories = [], isLoading, error, refetch } = useQuery({
-    queryKey: ["categories"],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["categories", page, pageSize],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from("franchise_categories")
-        .select("*")
-        .order("name");
+        .select("*", { count: "exact" })
+        .order("name")
+        .range(from, to);
 
       if (error) throw error;
-      return data as Category[];
+      return { categories: data as Category[], totalCount: count || 0 };
     },
   });
+
+  const categories = data?.categories || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   const createMutation = useMutation({
     mutationFn: async (inputData: { name: string; limits_json?: Json }) => {
@@ -125,6 +139,8 @@ export function useCategories() {
 
   return {
     categories,
+    totalCount,
+    totalPages,
     isLoading,
     error,
     refetch,

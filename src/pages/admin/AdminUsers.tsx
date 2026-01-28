@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { useUsers, UserProfile, UpdateUserData, CreateUserData } from "@/hooks/useUsers";
@@ -50,6 +50,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import {
   Search,
   Pencil,
@@ -82,15 +83,23 @@ const roleColors: Record<AppRole, string> = {
   oxy_hacker: "bg-green-500/10 text-green-500 border-green-500/20",
 };
 
+const PAGE_SIZE = 10;
+
 export default function AdminUsers() {
   useRoleGuard("admin");
   const { user } = useAuth();
   const { toast } = useToast();
-  const { users, loading, createUser, updateUser, suspendUser, deleteUser } = useUsers();
 
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<AppRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
+
+  const { users, loading, totalCount, totalPages, createUser, updateUser, suspendUser, deleteUser } = useUsers({
+    page,
+    pageSize: PAGE_SIZE,
+  });
+
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [formData, setFormData] = useState<UpdateUserData>({});
   const [saving, setSaving] = useState(false);
@@ -106,6 +115,11 @@ export default function AdminUsers() {
   });
   const [creating, setCreating] = useState(false);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
+
   // Fetch categories for the select
   const { data: categories = [] } = useQuery({
     queryKey: ["franchise-categories"],
@@ -119,6 +133,7 @@ export default function AdminUsers() {
     },
   });
 
+  // Client-side filtering since useUsers fetches paginated data
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
@@ -399,13 +414,19 @@ export default function AdminUsers() {
               )}
             </TableBody>
           </Table>
-        </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>{filteredUsers.length} usuário(s) encontrado(s)</span>
-          {roleFilter !== "all" && (
-            <span>• Filtrado por: {roleLabels[roleFilter]}</span>
+          {/* Pagination */}
+          {totalCount > 0 && (
+            <div className="border-t px-4">
+              <DataTablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={totalCount}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                isLoading={loading}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -496,9 +517,9 @@ export default function AdminUsers() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -514,10 +535,7 @@ export default function AdminUsers() {
             >
               Cancelar
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={creating || !createData.email || !createData.password || !createData.full_name}
-            >
+            <Button onClick={handleCreate} disabled={creating}>
               {creating ? "Criando..." : "Criar Usuário"}
             </Button>
           </DialogFooter>
@@ -531,11 +549,6 @@ export default function AdminUsers() {
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>
               Altere as informações do usuário abaixo.
-              {isCurrentUser && (
-                <span className="block text-amber-500 mt-1">
-                  Você não pode alterar seu próprio papel.
-                </span>
-              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -548,7 +561,6 @@ export default function AdminUsers() {
                 onChange={(e) =>
                   setFormData({ ...formData, full_name: e.target.value })
                 }
-                placeholder="Nome do usuário"
               />
             </div>
 
@@ -572,6 +584,11 @@ export default function AdminUsers() {
                   ))}
                 </SelectContent>
               </Select>
+              {isCurrentUser && (
+                <p className="text-xs text-muted-foreground">
+                  Você não pode alterar seu próprio papel.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -590,9 +607,9 @@ export default function AdminUsers() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -615,37 +632,18 @@ export default function AdminUsers() {
         </DialogContent>
       </Dialog>
 
-      {/* Suspend Confirmation */}
-      <AlertDialog open={!!userToSuspend} onOpenChange={() => setUserToSuspend(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {userToSuspend?.suspend ? "Suspender usuário?" : "Reativar usuário?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {userToSuspend?.suspend
-                ? `O usuário "${userToSuspend?.user.full_name || userToSuspend?.user.email}" será suspenso e não poderá acessar o sistema.`
-                : `O usuário "${userToSuspend?.user.full_name || userToSuspend?.user.email}" será reativado e poderá acessar o sistema novamente.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSuspend}>
-              {userToSuspend?.suspend ? "Suspender" : "Reativar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Delete Confirmation */}
-      <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+      <AlertDialog
+        open={!!userToDelete}
+        onOpenChange={() => setUserToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O perfil de "
-              {userToDelete?.full_name || userToDelete?.email}" será permanentemente
-              removido do sistema.
+              Tem certeza que deseja excluir o usuário{" "}
+              <strong>{userToDelete?.full_name || userToDelete?.email}</strong>?
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -655,6 +653,35 @@ export default function AdminUsers() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Suspend Confirmation */}
+      <AlertDialog
+        open={!!userToSuspend}
+        onOpenChange={() => setUserToSuspend(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {userToSuspend?.suspend ? "Suspender" : "Reativar"} Usuário
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToSuspend?.suspend
+                ? `Tem certeza que deseja suspender o usuário ${
+                    userToSuspend?.user.full_name || userToSuspend?.user.email
+                  }? Ele não poderá acessar o sistema.`
+                : `Tem certeza que deseja reativar o usuário ${
+                    userToSuspend?.user.full_name || userToSuspend?.user.email
+                  }?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSuspend}>
+              {userToSuspend?.suspend ? "Suspender" : "Reativar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
