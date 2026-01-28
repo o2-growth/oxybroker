@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface CountdownProps {
   endTime: string | Date;
   onComplete?: () => void;
+  wasExtended?: boolean;
 }
 
 interface TimeLeft {
@@ -13,7 +15,7 @@ interface TimeLeft {
   total: number;
 }
 
-export function CountdownTimer({ endTime, onComplete }: CountdownProps) {
+export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft());
 
   function calculateTimeLeft(): TimeLeft {
@@ -44,6 +46,11 @@ export function CountdownTimer({ endTime, onComplete }: CountdownProps) {
     return () => clearInterval(timer);
   }, [endTime, onComplete]);
 
+  // Recalculate immediately when endTime changes (for extension animation)
+  useEffect(() => {
+    setTimeLeft(calculateTimeLeft());
+  }, [endTime]);
+
   const isUrgent = timeLeft.total < 3600000; // Less than 1 hour
   const isCritical = timeLeft.total < 300000; // Less than 5 minutes
 
@@ -59,13 +66,15 @@ export function CountdownTimer({ endTime, onComplete }: CountdownProps) {
 
   return (
     <div
-      className={`oxy-countdown ${
+      className={cn(
+        "oxy-countdown transition-all duration-300",
         isCritical
-          ? "text-oxy-danger animate-pulse"
+          ? "text-[hsl(var(--oxy-danger))] animate-pulse"
           : isUrgent
-          ? "text-oxy-warning"
-          : "text-foreground"
-      }`}
+          ? "text-[hsl(var(--oxy-warning))]"
+          : "text-foreground",
+        wasExtended && "ring-2 ring-primary/50 px-2 py-1 rounded-md bg-primary/10"
+      )}
     >
       {timeLeft.days > 0 && (
         <span>
@@ -77,6 +86,9 @@ export function CountdownTimer({ endTime, onComplete }: CountdownProps) {
       <span>{formatNumber(timeLeft.minutes)}</span>
       <span className="opacity-50">:</span>
       <span>{formatNumber(timeLeft.seconds)}</span>
+      {wasExtended && (
+        <span className="ml-2 text-xs text-primary font-normal">+tempo</span>
+      )}
     </div>
   );
 }
