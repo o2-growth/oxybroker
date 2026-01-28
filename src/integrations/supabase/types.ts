@@ -333,6 +333,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          can_withdraw: boolean
           created_at: string
           email: string | null
           franchise_category_id: string | null
@@ -344,6 +345,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          can_withdraw?: boolean
           created_at?: string
           email?: string | null
           franchise_category_id?: string | null
@@ -355,6 +357,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          can_withdraw?: boolean
           created_at?: string
           email?: string | null
           franchise_category_id?: string | null
@@ -599,6 +602,42 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawals: {
+        Row: {
+          amount: number
+          bank_info: Json
+          id: string
+          notes: string | null
+          processed_at: string | null
+          processed_by: string | null
+          requested_at: string
+          status: Database["public"]["Enums"]["withdrawal_status"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          bank_info: Json
+          id?: string
+          notes?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bank_info?: Json
+          id?: string
+          notes?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -645,6 +684,8 @@ export type Database = {
         | "transfer_in"
         | "transfer_out"
         | "admin_adjust"
+        | "withdrawal"
+      withdrawal_status: "pending" | "approved" | "rejected" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -795,7 +836,9 @@ export const Constants = {
         "transfer_in",
         "transfer_out",
         "admin_adjust",
+        "withdrawal",
       ],
+      withdrawal_status: ["pending", "approved", "rejected", "completed"],
     },
   },
 } as const

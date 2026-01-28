@@ -10,10 +10,12 @@ import {
   ArrowDownLeft,
   RefreshCw,
   Receipt,
+  Banknote,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
+import { WithdrawModal } from "@/components/wallet/WithdrawModal";
 import { toast } from "@/hooks/use-toast";
 
 const transactionTypeConfig = {
@@ -47,14 +49,20 @@ const transactionTypeConfig = {
     icon: RefreshCw,
     className: "text-oxy-info",
   },
+  withdrawal: {
+    label: "Saque",
+    icon: Banknote,
+    className: "text-oxy-danger",
+  },
 };
 
 export default function WalletPage() {
   const { user, loading: authLoading } = useAuth();
-  const { wallet, transactions, loading, error, refetch } = useWallet();
+  const { wallet, transactions, canWithdraw, loading, error, refetch } = useWallet();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   // Handle authentication redirect
   useEffect(() => {
@@ -162,6 +170,12 @@ export default function WalletPage() {
                 <Button variant="outline" onClick={() => navigate("/transfers")}>
                   Transferir
                 </Button>
+                {canWithdraw && (
+                  <Button variant="outline" onClick={() => setWithdrawOpen(true)}>
+                    <Banknote className="h-4 w-4 mr-2" />
+                    Sacar
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -245,6 +259,14 @@ export default function WalletPage() {
 
         {/* TopUp Modal */}
         <TopUpModal open={topUpOpen} onOpenChange={setTopUpOpen} />
+
+        {/* Withdraw Modal */}
+        <WithdrawModal
+          open={withdrawOpen}
+          onOpenChange={setWithdrawOpen}
+          currentBalance={Number(wallet?.balance || 0)}
+          onSuccess={refetch}
+        />
       </div>
     </AppShell>
   );

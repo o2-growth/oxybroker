@@ -49,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import {
@@ -112,6 +113,7 @@ export default function AdminUsers() {
     full_name: "",
     role: "franquia" as AppRole,
     franchise_category_id: null as string | null,
+    can_withdraw: false,
   });
   const [creating, setCreating] = useState(false);
 
@@ -158,6 +160,7 @@ export default function AdminUsers() {
       full_name: userProfile.full_name || "",
       role: userProfile.role,
       franchise_category_id: userProfile.franchise_category_id,
+      can_withdraw: userProfile.can_withdraw,
     });
   };
 
@@ -226,6 +229,7 @@ export default function AdminUsers() {
         full_name: "",
         role: "franquia",
         franchise_category_id: null,
+        can_withdraw: false,
       });
     }
   };
@@ -525,6 +529,22 @@ export default function AdminUsers() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="create_can_withdraw">Permitir Saque</Label>
+                <p className="text-xs text-muted-foreground">
+                  Habilita o usuário a solicitar saque do saldo
+                </p>
+              </div>
+              <Switch
+                id="create_can_withdraw"
+                checked={createData.can_withdraw}
+                onCheckedChange={(checked) =>
+                  setCreateData({ ...createData, can_withdraw: checked })
+                }
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -614,6 +634,22 @@ export default function AdminUsers() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="edit_can_withdraw">Permitir Saque</Label>
+                <p className="text-xs text-muted-foreground">
+                  Habilita o usuário a solicitar saque do saldo
+                </p>
+              </div>
+              <Switch
+                id="edit_can_withdraw"
+                checked={formData.can_withdraw ?? false}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, can_withdraw: checked })
+                }
+              />
             </div>
           </div>
 
