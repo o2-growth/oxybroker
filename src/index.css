@@ -117,15 +117,47 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
-  /* Oxy Hacker Typography */
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
+  /* Oxy Hacker Typography - Clear Hierarchy */
+  h1 {
+    @apply text-2xl md:text-3xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-xl md:text-2xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply text-lg font-semibold tracking-tight;
+  }
+
+  h4 {
+    @apply text-base font-semibold;
+  }
+
+  h5, h6 {
+    @apply text-sm font-medium;
+  }
+
+  p {
+    @apply text-sm leading-relaxed;
   }
 
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Focus visible states */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Accessible link styles */
+  a:focus-visible {
+    @apply rounded-sm;
   }
 }
 
