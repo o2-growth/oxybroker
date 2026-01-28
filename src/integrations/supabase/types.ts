@@ -648,6 +648,16 @@ export type Database = {
         Returns: Json
       }
       close_auction_atomic: { Args: { p_lot_id: string }; Returns: Json }
+      credit_wallet: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_reference_id?: string
+          p_reference_type?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -663,6 +673,11 @@ export type Database = {
       is_oxy_hacker: { Args: never; Returns: boolean }
       place_bid_atomic: {
         Args: { p_amount: number; p_lot_id: string; p_user_id: string }
+        Returns: Json
+      }
+      process_return_atomic: { Args: { p_return_id: string }; Returns: Json }
+      transfer_balance_atomic: {
+        Args: { p_amount: number; p_from_user_id: string; p_to_user_id: string }
         Returns: Json
       }
     }
