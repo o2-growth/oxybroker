@@ -2,3 +2,9 @@ project_id = "hwgqntftsjnqjchyzjzk"
 
 [functions.place-bid]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.retry-stripe-events]
+verify_jwt = false
