@@ -16,6 +16,7 @@ type Lot = Database["public"]["Tables"]["lots"]["Row"];
 
 interface BidPanelProps {
   lot: Lot;
+  userHasBids?: boolean;
   onBidPlaced?: () => void;
 }
 
@@ -35,7 +36,7 @@ const parseCurrencyInput = (value: string): number => {
   return parseFloat(cleaned) || 0;
 };
 
-export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
+export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { placeBid, loading } = usePlaceBid();
@@ -43,7 +44,11 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
   const [bidAmount, setBidAmount] = useState("");
   const [wasExtended, setWasExtended] = useState(false);
 
-  const minBid = Number(lot.current_price) + Number(lot.min_bid_increment);
+  // If user already has bids, they can bid any amount above current price
+  // Otherwise, they need to meet the minimum increment
+  const minBid = userHasBids 
+    ? Number(lot.current_price) + 0.01 
+    : Number(lot.current_price) + Number(lot.min_bid_increment);
   const currentBidAmount = parseCurrencyInput(bidAmount);
   const balance = wallet ? Number(wallet.balance) : 0;
   const hasInsufficientBalance = bidAmount && currentBidAmount > balance;
@@ -185,15 +190,22 @@ export function BidPanel({ lot, onBidPlaced }: BidPanelProps) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-            Lance mínimo
+            {userHasBids ? "Seu próximo lance" : "Lance mínimo"}
           </p>
           <p className="text-2xl font-bold text-primary tabular-nums">
-            {formatCurrency(minBid)}
+            {userHasBids 
+              ? `> ${formatCurrency(Number(lot.current_price))}` 
+              : formatCurrency(minBid)}
           </p>
+          {userHasBids && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Qualquer valor acima do atual
+            </p>
+          )}
         </div>
         <Badge variant="outline" className="text-xs">
           <Clock className="h-3 w-3 mr-1" />
-          Ao vivo
+          {userHasBids ? "Você participa" : "Ao vivo"}
         </Badge>
       </div>
 
