@@ -643,6 +643,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      buy_now_atomic: {
+        Args: { p_lot_id: string; p_user_id: string }
+        Returns: Json
+      }
+      close_auction_atomic: { Args: { p_lot_id: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -670,7 +675,7 @@ export type Database = {
         | "sold"
         | "returned"
         | "disabled"
-      asset_type: "lead" | "mlq" | "meeting"
+      asset_type: "lead" | "mlq" | "meeting" | "mql" | "client"
       lot_status: "draft" | "live" | "ended" | "cancelled"
       notification_channel: "in_app" | "email"
       purchase_status: "paid" | "refunded" | "disputed"
@@ -822,7 +827,7 @@ export const Constants = {
         "returned",
         "disabled",
       ],
-      asset_type: ["lead", "mlq", "meeting"],
+      asset_type: ["lead", "mlq", "meeting", "mql", "client"],
       lot_status: ["draft", "live", "ended", "cancelled"],
       notification_channel: ["in_app", "email"],
       purchase_status: ["paid", "refunded", "disputed"],
