@@ -2,95 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Oxy Hacker Design System - Dark, High Contrast, Clean Typography */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    /* Light mode (fallback) */
+    --background: 0 0% 98%;
+    --foreground: 220 15% 10%;
+    
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 220 15% 10%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
+    --popover-foreground: 220 15% 10%;
+    
+    --primary: 142 70% 45%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 220 13% 91%;
+    --secondary-foreground: 220 15% 10%;
+    
+    --muted: 220 13% 91%;
+    --muted-foreground: 220 10% 40%;
+    
+    --accent: 142 70% 45%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 220 13% 87%;
+    --input: 220 13% 91%;
+    --ring: 142 70% 45%;
+    
     --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Sidebar */
+    --sidebar-background: 220 15% 96%;
+    --sidebar-foreground: 220 15% 10%;
+    --sidebar-primary: 142 70% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 13% 91%;
+    --sidebar-accent-foreground: 220 15% 10%;
+    --sidebar-border: 220 13% 87%;
+    --sidebar-ring: 142 70% 45%;
+    
+    /* Custom Oxy colors */
+    --oxy-success: 142 70% 45%;
+    --oxy-warning: 45 93% 47%;
+    --oxy-danger: 0 72% 51%;
+    --oxy-info: 199 89% 48%;
+    --oxy-glow: 142 70% 45%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Oxy Hacker Dark Theme */
+    --background: 220 20% 6%;
+    --foreground: 0 0% 95%;
+    
+    --card: 220 20% 9%;
+    --card-foreground: 0 0% 95%;
+    
+    --popover: 220 20% 9%;
+    --popover-foreground: 0 0% 95%;
+    
+    --primary: 142 70% 50%;
+    --primary-foreground: 220 20% 6%;
+    
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 0 0% 90%;
+    
+    --muted: 220 15% 13%;
+    --muted-foreground: 220 10% 55%;
+    
+    --accent: 142 70% 50%;
+    --accent-foreground: 220 20% 6%;
+    
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 220 15% 18%;
+    --input: 220 15% 15%;
+    --ring: 142 70% 50%;
+    
+    /* Sidebar Dark */
+    --sidebar-background: 220 20% 8%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 142 70% 50%;
+    --sidebar-primary-foreground: 220 20% 6%;
+    --sidebar-accent: 220 15% 13%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 15% 15%;
+    --sidebar-ring: 142 70% 50%;
+    
+    /* Oxy Glow Effects */
+    --oxy-success: 142 70% 50%;
+    --oxy-warning: 45 93% 50%;
+    --oxy-danger: 0 72% 55%;
+    --oxy-info: 199 89% 50%;
+    --oxy-glow: 142 70% 50%;
   }
 }
 
@@ -99,7 +110,181 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    @apply scroll-smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Oxy Hacker Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  /* Oxy Card Variants */
+  .oxy-card {
+    @apply bg-card border border-border rounded-lg;
+  }
+
+  .oxy-card-glow {
+    @apply bg-card border border-border rounded-lg relative overflow-hidden;
+  }
+
+  .oxy-card-glow::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), hsl(var(--oxy-glow) / 0.08), transparent 40%);
+  }
+
+  .oxy-card-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Oxy Buttons */
+  .oxy-btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200;
+  }
+
+  .oxy-btn-ghost {
+    @apply bg-transparent hover:bg-muted text-foreground transition-all duration-200;
+  }
+
+  .oxy-btn-danger {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200;
+  }
+
+  /* Oxy Status Badges */
+  .oxy-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .oxy-badge-success {
+    @apply bg-[hsl(var(--oxy-success))]/15 text-[hsl(var(--oxy-success))] border border-[hsl(var(--oxy-success))]/30;
+  }
+
+  .oxy-badge-warning {
+    @apply bg-[hsl(var(--oxy-warning))]/15 text-[hsl(var(--oxy-warning))] border border-[hsl(var(--oxy-warning))]/30;
+  }
+
+  .oxy-badge-danger {
+    @apply bg-[hsl(var(--oxy-danger))]/15 text-[hsl(var(--oxy-danger))] border border-[hsl(var(--oxy-danger))]/30;
+  }
+
+  .oxy-badge-info {
+    @apply bg-[hsl(var(--oxy-info))]/15 text-[hsl(var(--oxy-info))] border border-[hsl(var(--oxy-info))]/30;
+  }
+
+  /* Oxy Input */
+  .oxy-input {
+    @apply bg-input border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all duration-200;
+  }
+
+  /* Oxy Glow Text */
+  .oxy-glow-text {
+    @apply text-primary;
+    text-shadow: 0 0 20px hsl(var(--oxy-glow) / 0.5);
+  }
+
+  /* Countdown Timer */
+  .oxy-countdown {
+    @apply font-mono text-lg tabular-nums;
+  }
+
+  /* Price Display */
+  .oxy-price {
+    @apply font-semibold text-primary tabular-nums;
+  }
+
+  .oxy-price-large {
+    @apply text-2xl font-bold text-primary tabular-nums;
+  }
+
+  /* Loading States */
+  .oxy-skeleton {
+    @apply bg-muted animate-pulse rounded;
+  }
+
+  /* Scrollbar Styling */
+  .oxy-scrollbar::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .oxy-scrollbar::-webkit-scrollbar-track {
+    @apply bg-muted/50 rounded;
+  }
+
+  .oxy-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-border rounded hover:bg-muted-foreground/30;
+  }
+
+  /* Auction Live Indicator */
+  .oxy-live-indicator {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .oxy-live-indicator::before {
+    content: '';
+    @apply w-2 h-2 rounded-full bg-[hsl(var(--oxy-danger))] animate-pulse;
+  }
+
+  /* Table Styles */
+  .oxy-table {
+    @apply w-full text-sm;
+  }
+
+  .oxy-table th {
+    @apply text-left text-muted-foreground font-medium py-3 px-4 border-b border-border;
+  }
+
+  .oxy-table td {
+    @apply py-3 px-4 border-b border-border;
+  }
+
+  .oxy-table tr:hover td {
+    @apply bg-muted/50;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 5px hsl(var(--oxy-glow) / 0.3); }
+    50% { box-shadow: 0 0 20px hsl(var(--oxy-glow) / 0.6); }
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-sm;
   }
 }
