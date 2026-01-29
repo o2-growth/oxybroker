@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlaceBid } from "@/hooks/usePlaceBid";
 import { useWallet } from "@/hooks/useWallet";
+import { useUserHasBidOnLot } from "@/hooks/useUserHasBidOnLot";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -41,12 +42,16 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
   const { toast } = useToast();
   const { placeBid, loading } = usePlaceBid();
   const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
+  const { hasBid: hasBidViaRPC } = useUserHasBidOnLot(lot.id);
   const [bidAmount, setBidAmount] = useState("");
   const [wasExtended, setWasExtended] = useState(false);
 
+  // Use RPC result as fallback if prop is false (RLS may have blocked the bids query)
+  const effectiveUserHasBids = userHasBids || hasBidViaRPC === true;
+
   // If user already has bids, they can bid any amount above current price
   // Otherwise, they need to meet the minimum increment
-  const minBid = userHasBids 
+  const minBid = effectiveUserHasBids 
     ? Number(lot.current_price) + 0.01 
     : Number(lot.current_price) + Number(lot.min_bid_increment);
   const currentBidAmount = parseCurrencyInput(bidAmount);
@@ -190,14 +195,14 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-            {userHasBids ? "Seu próximo lance" : "Lance mínimo"}
+            {effectiveUserHasBids ? "Seu próximo lance" : "Lance mínimo"}
           </p>
           <p className="text-2xl font-bold text-primary tabular-nums">
-            {userHasBids 
+            {effectiveUserHasBids 
               ? `> ${formatCurrency(Number(lot.current_price))}` 
               : formatCurrency(minBid)}
           </p>
-          {userHasBids && (
+          {effectiveUserHasBids && (
             <p className="text-xs text-muted-foreground mt-1">
               Qualquer valor acima do atual
             </p>
@@ -205,7 +210,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
         </div>
         <Badge variant="outline" className="text-xs">
           <Clock className="h-3 w-3 mr-1" />
-          {userHasBids ? "Você participa" : "Ao vivo"}
+          {effectiveUserHasBids ? "Você participa" : "Ao vivo"}
         </Badge>
       </div>
 
