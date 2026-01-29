@@ -917,7 +917,80 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      profiles_public: {
+        Row: {
+          avatar_url: string | null
+          can_withdraw: boolean | null
+          created_at: string | null
+          franchise_category_id: string | null
+          full_name: string | null
+          id: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+          suspended_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          can_withdraw?: boolean | null
+          created_at?: string | null
+          franchise_category_id?: string | null
+          full_name?: string | null
+          id?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          suspended_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          can_withdraw?: boolean | null
+          created_at?: string | null
+          franchise_category_id?: string | null
+          full_name?: string | null
+          id?: string | null
+          role?: Database["public"]["Enums"]["app_role"] | null
+          suspended_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_franchise_category_id_fkey"
+            columns: ["franchise_category_id"]
+            isOneToOne: false
+            referencedRelation: "franchise_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawals_user: {
+        Row: {
+          amount: number | null
+          id: string | null
+          notes: string | null
+          processed_at: string | null
+          requested_at: string | null
+          status: Database["public"]["Enums"]["withdrawal_status"] | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          id?: string | null
+          notes?: string | null
+          processed_at?: string | null
+          requested_at?: string | null
+          status?: Database["public"]["Enums"]["withdrawal_status"] | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          id?: string | null
+          notes?: string | null
+          processed_at?: string | null
+          requested_at?: string | null
+          status?: Database["public"]["Enums"]["withdrawal_status"] | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       apply_promotion: {
