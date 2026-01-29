@@ -43,20 +43,24 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
   const { placeBid, loading } = usePlaceBid();
   const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
   const { hasBid: hasBidViaRPC } = useUserHasBidOnLot(lot.id);
-  const [bidAmount, setBidAmount] = useState("");
+  const [bidIncrement, setBidIncrement] = useState("");
   const [wasExtended, setWasExtended] = useState(false);
 
   // Use RPC result as fallback if prop is false (RLS may have blocked the bids query)
   const effectiveUserHasBids = userHasBids || hasBidViaRPC === true;
 
-  // If user already has bids, they can bid any amount above current price
-  // Otherwise, they need to meet the minimum increment
-  const minBid = effectiveUserHasBids 
-    ? Number(lot.current_price) + 0.01 
-    : Number(lot.current_price) + Number(lot.min_bid_increment);
-  const currentBidAmount = parseCurrencyInput(bidAmount);
+  // Calculate the increment value and total bid
+  const incrementValue = parseCurrencyInput(bidIncrement);
+  const currentPrice = Number(lot.current_price);
+  const calculatedTotal = currentPrice + incrementValue;
+
+  // Minimum increment: any positive amount for returning bidders, min_bid_increment for new bidders
+  const minIncrement = effectiveUserHasBids 
+    ? 0.01 
+    : Number(lot.min_bid_increment);
+
   const balance = wallet ? Number(wallet.balance) : 0;
-  const hasInsufficientBalance = bidAmount && currentBidAmount > balance;
+  const hasInsufficientBalance = bidIncrement && calculatedTotal > balance;
 
   // Reset extended animation after a few seconds
   useEffect(() => {
@@ -76,19 +80,19 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
       return;
     }
 
-    const amount = parseCurrencyInput(bidAmount);
-
-    if (isNaN(amount) || amount < minBid) {
+    if (isNaN(incrementValue) || incrementValue < minIncrement) {
       toast({
-        title: "Lance inválido",
-        description: `O lance mínimo é ${formatCurrency(minBid)}`,
+        title: "Incremento inválido",
+        description: effectiveUserHasBids 
+          ? "Digite um valor maior que zero para adicionar ao lance."
+          : `O incremento mínimo é ${formatCurrency(minIncrement)}`,
         variant: "destructive",
       });
       return;
     }
 
     // Frontend validation for insufficient balance
-    if (amount > balance) {
+    if (calculatedTotal > balance) {
       toast({
         title: "Saldo insuficiente",
         description: `Seu saldo é ${formatCurrency(balance)}. Recarregue sua carteira.`,
@@ -97,7 +101,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
       return;
     }
 
-    const result = await placeBid(lot.id, amount);
+    const result = await placeBid(lot.id, calculatedTotal);
 
     if (result.success) {
       toast({
@@ -109,7 +113,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
         setWasExtended(true);
       }
 
-      setBidAmount("");
+      setBidIncrement("");
       refetchWallet(); // Refresh wallet balance after successful bid
       onBidPlaced?.();
     } else {
@@ -122,7 +126,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !loading && bidAmount && !hasInsufficientBalance) {
+    if (e.key === "Enter" && !loading && bidIncrement && !hasInsufficientBalance) {
       handleBid();
     }
   };
@@ -191,90 +195,93 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
         </div>
       )}
 
-      {/* Current price and minimum bid */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-            {effectiveUserHasBids ? "Seu próximo lance" : "Lance mínimo"}
-          </p>
-          <p className="text-2xl font-bold text-primary tabular-nums">
-            {effectiveUserHasBids 
-              ? `> ${formatCurrency(Number(lot.current_price))}` 
-              : formatCurrency(minBid)}
-          </p>
-          {effectiveUserHasBids && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Qualquer valor acima do atual
+      {/* Current price and calculated total */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+              Valor atual
             </p>
-          )}
+            <p className="text-2xl font-bold text-foreground tabular-nums">
+              {formatCurrency(currentPrice)}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            <Clock className="h-3 w-3 mr-1" />
+            {effectiveUserHasBids ? "Você participa" : "Ao vivo"}
+          </Badge>
         </div>
-        <Badge variant="outline" className="text-xs">
-          <Clock className="h-3 w-3 mr-1" />
-          {effectiveUserHasBids ? "Você participa" : "Ao vivo"}
-        </Badge>
+
+        {/* Show calculated total when user is typing */}
+        {incrementValue > 0 && (
+          <div className="bg-primary/10 border border-primary/20 rounded-md p-3">
+            <p className="text-xs text-muted-foreground mb-1">Seu lance será:</p>
+            <p className="text-xl font-bold text-primary tabular-nums">
+              {formatCurrency(calculatedTotal)}
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Bid input */}
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Input
-            type="text"
-            placeholder={formatCurrency(minBid)}
-            value={bidAmount}
-            onChange={(e) => setBidAmount(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className={cn(
-              "text-lg h-12 font-medium",
-              hasInsufficientBalance && "border-destructive focus-visible:ring-destructive"
+      {/* Increment input */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-muted-foreground">
+          Adicionar ao valor atual:
+        </label>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+              +
+            </span>
+            <Input
+              type="text"
+              placeholder={formatCurrency(minIncrement)}
+              value={bidIncrement}
+              onChange={(e) => setBidIncrement(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className={cn(
+                "text-lg h-12 font-medium pl-8",
+                hasInsufficientBalance && "border-destructive focus-visible:ring-destructive"
+              )}
+              disabled={loading}
+            />
+          </div>
+          <Button
+            onClick={handleBid}
+            disabled={loading || !bidIncrement || hasInsufficientBalance || incrementValue < minIncrement}
+            size="lg"
+            className="h-12 px-6 gap-2"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Gavel className="h-4 w-4" />
             )}
-            disabled={loading}
-          />
+            Dar Lance
+          </Button>
         </div>
-        <Button
-          onClick={handleBid}
-          disabled={loading || !bidAmount || hasInsufficientBalance}
-          size="lg"
-          className="h-12 px-6 gap-2"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Gavel className="h-4 w-4" />
-          )}
-          Dar Lance
-        </Button>
+        <p className="text-xs text-muted-foreground">
+          {effectiveUserHasBids 
+            ? "Você já participa! Digite qualquer valor para aumentar seu lance."
+            : `Incremento mínimo: ${formatCurrency(minIncrement)}`}
+        </p>
       </div>
 
-      {/* Quick bid buttons */}
+      {/* Quick increment buttons */}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setBidAmount(formatCurrency(minBid))}
+          onClick={() => setBidIncrement(formatCurrency(minIncrement))}
           disabled={loading}
           className="text-xs"
         >
-          Mínimo
+          +{formatCurrency(minIncrement)}
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
-            setBidAmount(formatCurrency(minBid + Number(lot.min_bid_increment)))
-          }
-          disabled={loading}
-          className="text-xs"
-        >
-          +{formatCurrency(Number(lot.min_bid_increment))}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            setBidAmount(
-              formatCurrency(minBid + Number(lot.min_bid_increment) * 2)
-            )
-          }
+          onClick={() => setBidIncrement(formatCurrency(Number(lot.min_bid_increment) * 2))}
           disabled={loading}
           className="text-xs"
         >
@@ -283,15 +290,20 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
-            setBidAmount(
-              formatCurrency(minBid + Number(lot.min_bid_increment) * 5)
-            )
-          }
+          onClick={() => setBidIncrement(formatCurrency(Number(lot.min_bid_increment) * 5))}
           disabled={loading}
           className="text-xs"
         >
           +{formatCurrency(Number(lot.min_bid_increment) * 5)}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setBidIncrement(formatCurrency(Number(lot.min_bid_increment) * 10))}
+          disabled={loading}
+          className="text-xs"
+        >
+          +{formatCurrency(Number(lot.min_bid_increment) * 10)}
         </Button>
       </div>
 
