@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface RequestBody {
@@ -52,16 +52,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = claimsData.claims.sub as string;
 
     // Parse request body
     const body: RequestBody = await req.json();
     const { amount, bank_info } = body;
 
-    // Validate amount
-    if (!amount || amount < 50) {
+    // Basic validation before calling atomic function
+    if (!amount || typeof amount !== "number") {
       return new Response(
-        JSON.stringify({ error: "Valor mínimo para saque é R$ 50,00" }),
+        JSON.stringify({ error: "Valor inválido" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -93,125 +93,48 @@ Deno.serve(async (req) => {
     // Service client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if user can withdraw
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("can_withdraw, full_name")
-      .eq("id", userId)
-      .single();
+    // Call atomic withdrawal function - prevents race conditions
+    const { data: result, error: rpcError } = await supabaseAdmin.rpc(
+      "request_withdrawal_atomic",
+      {
+        p_user_id: userId,
+        p_amount: amount,
+        p_bank_info: bank_info,
+      }
+    );
 
-    if (profileError || !profile) {
+    if (rpcError) {
+      console.error("Error calling request_withdrawal_atomic:", rpcError);
       return new Response(
-        JSON.stringify({ error: "Perfil não encontrado" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!profile.can_withdraw) {
-      return new Response(
-        JSON.stringify({ error: "Saque não habilitado para sua conta. Entre em contato com o administrador." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check wallet balance
-    const { data: wallet, error: walletError } = await supabaseAdmin
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", userId)
-      .single();
-
-    if (walletError || !wallet) {
-      return new Response(
-        JSON.stringify({ error: "Carteira não encontrada" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (Number(wallet.balance) < amount) {
-      return new Response(
-        JSON.stringify({ error: "Saldo insuficiente" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Start transaction: debit wallet, create withdrawal record, create transaction
-
-    // 1. Debit wallet
-    const newBalance = Number(wallet.balance) - amount;
-    const { error: updateWalletError } = await supabaseAdmin
-      .from("wallets")
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
-
-    if (updateWalletError) {
-      console.error("Error updating wallet:", updateWalletError);
-      return new Response(
-        JSON.stringify({ error: "Erro ao debitar carteira" }),
+        JSON.stringify({ error: "Erro ao processar solicitação de saque" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 2. Create withdrawal record
-    const { data: withdrawal, error: withdrawalError } = await supabaseAdmin
-      .from("withdrawals")
-      .insert({
-        user_id: userId,
-        amount,
-        status: "pending",
-        bank_info,
-      })
-      .select()
-      .single();
-
-    if (withdrawalError) {
-      console.error("Error creating withdrawal:", withdrawalError);
-      // Try to rollback wallet
-      await supabaseAdmin
-        .from("wallets")
-        .update({ balance: wallet.balance })
-        .eq("user_id", userId);
-
+    // Check for business logic errors from atomic function
+    if (result?.error_code) {
+      const statusMap: Record<string, number> = {
+        AMOUNT_TOO_LOW: 400,
+        PROFILE_NOT_FOUND: 404,
+        WITHDRAWAL_NOT_ALLOWED: 403,
+        WALLET_NOT_FOUND: 404,
+        INSUFFICIENT_BALANCE: 400,
+      };
+      
       return new Response(
-        JSON.stringify({ error: "Erro ao criar solicitação de saque" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: result.error_message }),
+        { 
+          status: statusMap[result.error_code] || 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
       );
     }
-
-    // 3. Create wallet transaction
-    const { error: txError } = await supabaseAdmin
-      .from("wallet_transactions")
-      .insert({
-        user_id: userId,
-        type: "withdrawal",
-        amount,
-        description: "Solicitação de saque",
-        reference_type: "withdrawal",
-        reference_id: withdrawal.id,
-      });
-
-    if (txError) {
-      console.error("Error creating transaction:", txError);
-      // Continue anyway, the withdrawal was created
-    }
-
-    // 4. Create admin alert (optional notification)
-    await supabaseAdmin.from("admin_alerts").insert({
-      type: "withdrawal_request",
-      title: "Nova solicitação de saque",
-      message: `${profile.full_name || "Usuário"} solicitou saque de R$ ${amount.toFixed(2)}`,
-      metadata: {
-        withdrawal_id: withdrawal.id,
-        user_id: userId,
-        amount,
-      },
-    });
 
     return new Response(
       JSON.stringify({
         success: true,
-        withdrawal_id: withdrawal.id,
-        message: "Solicitação de saque enviada com sucesso",
+        withdrawal_id: result.withdrawal_id,
+        message: result.message,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

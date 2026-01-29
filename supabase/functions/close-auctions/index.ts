@@ -26,6 +26,70 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // =============================================
+    // AUTHENTICATION: Admin or Cron Secret required
+    // =============================================
+    
+    const authHeader = req.headers.get("Authorization");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const providedCronSecret = req.headers.get("X-Cron-Secret");
+    
+    // Check cron secret first (for scheduled jobs)
+    const isCronAuthorized = cronSecret && providedCronSecret === cronSecret;
+    
+    // If not cron, check for admin auth
+    let isAdminAuthorized = false;
+    
+    if (!isCronAuthorized) {
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized - Authentication required" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+
+      if (claimsError || !claimsData?.claims) {
+        return new Response(
+          JSON.stringify({ error: "Invalid token" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const userId = claimsData.claims.sub as string;
+      
+      // Check admin role using service client
+      const supabaseAdminCheck = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: hasAdminRole } = await supabaseAdminCheck.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+
+      if (!hasAdminRole) {
+        return new Response(
+          JSON.stringify({ error: "Admin access required" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      isAdminAuthorized = true;
+    }
+
+    // At this point, either cron or admin is authorized
+    if (!isCronAuthorized && !isAdminAuthorized) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -116,9 +180,9 @@ serve(async (req) => {
           if (otherBidders && otherBidders.length > 0) {
             const uniqueUserIds = [...new Set(otherBidders.map((b) => b.user_id))];
 
-            for (const userId of uniqueUserIds) {
+            for (const recipientUserId of uniqueUserIds) {
               await supabaseAdmin.from("notifications").insert({
-                user_id: userId,
+                user_id: recipientUserId,
                 type: "ended",
                 title: `Leilão encerrado: ${lot.title}`,
                 channel: "in_app",
