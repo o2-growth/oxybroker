@@ -47,6 +47,108 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_daily_rollups: {
+        Row: {
+          avg_duration_ms: number | null
+          created_at: string
+          error_count: number
+          event_name: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          rollup_date: string
+          route: string | null
+          total_count: number
+          total_duration_ms: number | null
+          unique_sessions: number
+          unique_users: number
+        }
+        Insert: {
+          avg_duration_ms?: number | null
+          created_at?: string
+          error_count?: number
+          event_name: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          rollup_date: string
+          route?: string | null
+          total_count?: number
+          total_duration_ms?: number | null
+          unique_sessions?: number
+          unique_users?: number
+        }
+        Update: {
+          avg_duration_ms?: number | null
+          created_at?: string
+          error_count?: number
+          event_name?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          rollup_date?: string
+          route?: string | null
+          total_count?: number
+          total_duration_ms?: number | null
+          unique_sessions?: number
+          unique_users?: number
+        }
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          duration_ms: number | null
+          entity_id: string | null
+          entity_type: string | null
+          event_name: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          referrer: string | null
+          request_id: string | null
+          role: string | null
+          route: string | null
+          session_id: string
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          event_name: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          referrer?: string | null
+          request_id?: string | null
+          role?: string | null
+          route?: string | null
+          session_id: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          event_name?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          referrer?: string | null
+          request_id?: string | null
+          role?: string | null
+          route?: string | null
+          session_id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           bidding_extension_seconds: number

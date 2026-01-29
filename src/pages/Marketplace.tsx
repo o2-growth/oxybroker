@@ -10,6 +10,7 @@ import { LotGridSkeleton, StatCardSkeleton } from "@/components/ui/lot-skeleton"
 import { Gavel, TrendingUp, Clock, AlertCircle } from "lucide-react";
 import { useMarketplaceFilters } from "@/hooks/useMarketplaceFilters";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const STORAGE_KEY = "marketplaceView";
 
@@ -27,6 +28,7 @@ export default function Marketplace() {
   } = useMarketplaceFilters();
 
   const isMobile = useIsMobile();
+  const { trackAction } = useAnalytics();
 
   // View preference - default to list
   const [view, setView] = useState<ViewMode>(() => {
@@ -37,6 +39,11 @@ export default function Marketplace() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, view);
   }, [view]);
+
+  const handleViewChange = (newView: ViewMode) => {
+    setView(newView);
+    trackAction(`toggle_view_${newView}`);
+  };
 
   const stats = {
     live: lots.filter((l) => l.status === "live").length,
@@ -58,7 +65,7 @@ export default function Marketplace() {
               Encontre e dê lances nos melhores ativos
             </p>
           </div>
-          <ViewToggle view={view} onViewChange={setView} />
+          <ViewToggle view={view} onViewChange={handleViewChange} />
         </div>
 
         {/* Stats Cards */}

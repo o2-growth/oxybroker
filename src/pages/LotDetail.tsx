@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuctionStatus } from "@/hooks/useAuctionStatus";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
   lead: "Lead",
@@ -35,6 +36,7 @@ export default function LotDetail() {
   const { user } = useAuth();
   const { wallet, refetch: refetchWallet } = useWallet();
   const auctionStatus = useAuctionStatus(lot?.bids || []);
+  const { trackAction, trackDomainEvent } = useAnalytics();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

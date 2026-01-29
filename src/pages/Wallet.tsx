@@ -17,6 +17,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
 import { WithdrawModal } from "@/components/wallet/WithdrawModal";
 import { toast } from "@/hooks/use-toast";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const transactionTypeConfig = {
   topup: {
@@ -63,6 +64,17 @@ export default function WalletPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const { trackAction, trackDomainEvent } = useAnalytics();
+
+  const handleTopUpOpen = (open: boolean) => {
+    setTopUpOpen(open);
+    if (open) trackAction("topup_start");
+  };
+
+  const handleWithdrawOpen = (open: boolean) => {
+    setWithdrawOpen(open);
+    if (open) trackAction("withdraw_start");
+  };
 
   // Handle authentication redirect
   useEffect(() => {
@@ -79,6 +91,7 @@ export default function WalletPage() {
         title: "Pagamento processado!",
         description: "Seu saldo será atualizado em instantes.",
       });
+      trackDomainEvent("topup_confirmed", "success");
       setSearchParams({});
       // Refetch wallet data after a short delay
       setTimeout(() => refetch(), 2000);
@@ -88,9 +101,10 @@ export default function WalletPage() {
         title: "Recarga cancelada",
         description: "A operação foi cancelada.",
       });
+      trackDomainEvent("topup_cancelled", "cancelled");
       setSearchParams({});
     }
-  }, [searchParams, setSearchParams, refetch]);
+  }, [searchParams, setSearchParams, refetch, trackDomainEvent]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -136,7 +150,7 @@ export default function WalletPage() {
               Gerencie seu saldo e veja seu extrato
             </p>
           </div>
-          <Button className="gap-2" onClick={() => setTopUpOpen(true)}>
+          <Button className="gap-2" onClick={() => handleTopUpOpen(true)}>
             <Plus className="h-4 w-4" />
             Adicionar Saldo
           </Button>
@@ -171,7 +185,7 @@ export default function WalletPage() {
                   Transferir
                 </Button>
                 {canWithdraw && (
-                  <Button variant="outline" onClick={() => setWithdrawOpen(true)}>
+                  <Button variant="outline" onClick={() => handleWithdrawOpen(true)}>
                     <Banknote className="h-4 w-4 mr-2" />
                     Sacar
                   </Button>
@@ -258,12 +272,12 @@ export default function WalletPage() {
         </div>
 
         {/* TopUp Modal */}
-        <TopUpModal open={topUpOpen} onOpenChange={setTopUpOpen} />
+        <TopUpModal open={topUpOpen} onOpenChange={handleTopUpOpen} />
 
         {/* Withdraw Modal */}
         <WithdrawModal
           open={withdrawOpen}
-          onOpenChange={setWithdrawOpen}
+          onOpenChange={handleWithdrawOpen}
           currentBalance={Number(wallet?.balance || 0)}
           onSuccess={refetch}
         />

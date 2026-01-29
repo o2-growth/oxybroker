@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { logAnalyticsEvent, getAmountBucket } from "../_shared/analytics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -223,6 +224,19 @@ async function processStripeEvent(
       if (creditResult?.error_code) {
         return { success: false, error: creditResult.error_message };
       }
+
+      // Log analytics event
+      await logAnalyticsEvent(supabase, {
+        event_type: "domain_event",
+        event_name: "topup_confirmed",
+        user_id: userId,
+        entity_type: "stripe_checkout",
+        entity_id: session.id,
+        status: "success",
+        metadata: {
+          amount_bucket: getAmountBucket(amount),
+        },
+      });
 
       console.log(`💰 Credited ${amount} to wallet for user ${userId}`);
       return { success: true };

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAnalyticsEvent, getAmountBucket } from "../_shared/analytics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,8 @@ interface PlaceBidResponse {
 }
 
 serve(async (req) => {
+  const startTime = Date.now();
+  
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -149,6 +152,23 @@ serve(async (req) => {
         ends_at: bidResult.ends_at,
         was_extended: bidResult.was_extended,
         bid_count: bidResult.bid_count,
+      },
+    });
+
+    // =============================================
+    // LOG ANALYTICS EVENT
+    // =============================================
+    await logAnalyticsEvent(supabaseAdmin, {
+      event_type: "domain_event",
+      event_name: "bid_placed",
+      user_id: user.id,
+      entity_type: "lot",
+      entity_id: lot_id,
+      status: "success",
+      duration_ms: Date.now() - startTime,
+      metadata: {
+        amount_bucket: getAmountBucket(amount),
+        was_extended: bidResult.was_extended,
       },
     });
 
