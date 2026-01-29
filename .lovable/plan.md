@@ -1,120 +1,149 @@
 
-# Plano: Corrigir Recursão Infinita na Política RLS de Bids
+
+# Plano: Corrigir Validação de Lances Adicionais
 
 ## Problema Identificado
 
-Ao acessar um lote pela tela de marketplace, o sistema exibe o erro:
-> "infinite recursion detected in policy for relation bids"
+O usuário reporta que não consegue dar um lance adicional em um lote onde já participou. De acordo com a regra de negócio:
+- **Primeiro lance**: deve respeitar o incremento mínimo (`current_price + min_bid_increment`)
+- **Lances subsequentes**: só precisam ser maiores que o preço atual
 
-### Causa Raiz
-A política RLS `bids_select_lot_participants` contém uma subconsulta que referencia a própria tabela `bids`:
+## Análise da Situação Atual
 
-```sql
-lot_id IN (SELECT b.lot_id FROM public.bids b WHERE b.user_id = auth.uid())
-```
-
-Isso cria um loop infinito: para verificar se o usuário pode ver um lance, o PostgreSQL precisa consultar a tabela `bids`, que por sua vez dispara a mesma verificação de política.
-
----
-
-## Solução
-
-Criar uma função `SECURITY DEFINER` que contorna o RLS para verificar se o usuário já deu lance em um determinado lote, e usar essa função na política.
-
----
-
-## Etapas de Implementação
-
-### 1. Criar Função `user_has_bid_on_lot`
-
-Uma nova função SQL com `SECURITY DEFINER` que verifica, sem passar pelo RLS, se o usuário atual possui lances em um determinado lote.
+### Backend (Correto)
+A função `place_bid_atomic` no banco de dados JÁ implementa corretamente essa lógica:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│  public.user_has_bid_on_lot(_lot_id UUID)                   │
+│  place_bid_atomic                                           │
 │  ─────────────────────────────────────────────────          │
-│  • SECURITY DEFINER (bypass RLS)                            │
-│  • Retorna TRUE se auth.uid() tem lance no lote             │
-│  • Segura: apenas verifica existência, sem expor dados      │
+│  1. Verifica se usuário tem lances anteriores               │
+│  2. Se SIM: aceita amount > current_price                   │
+│  3. Se NÃO: exige amount >= current_price + min_increment   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Recriar Política RLS `bids_select_lot_participants`
+### Frontend (Correto)
+O `BidPanel.tsx` também implementa corretamente:
 
-Substituir a política atual por uma versão que usa a nova função:
+```typescript
+const minBid = userHasBids 
+  ? Number(lot.current_price) + 0.01  // Qualquer valor acima do atual
+  : Number(lot.current_price) + Number(lot.min_bid_increment);
+```
+
+### Problema Real
+
+Analisando os dados:
+- **Saldo do usuário**: R$ 500
+- **Preço atual do lote**: R$ 6.000
+- **Lance mínimo válido**: R$ 6.000,01 (para quem já tem lances)
+
+O usuário está tentando valores como "51" e "07", que são interpretados como R$ 51 e R$ 7 - muito abaixo do lance mínimo.
+
+**Mas o saldo é R$ 500** - mesmo se tentar R$ 6.001, seria rejeitado por saldo insuficiente!
+
+## Bug Encontrado
+
+O bug está na prop `userHasBids` sendo passada para o `BidPanel`. Ela depende de `lot.bids`, que pode estar:
+1. Vazio se a política RLS não retornar os dados
+2. Causando `userHasBids = false` mesmo quando o usuário tem lances
+
+### Verificação do RLS
+
+A política `bids_select_lot_participants` usa `user_has_bid_on_lot()`. Se esta função retorna `false` por algum motivo (timing, cache), o usuário não vê seus próprios lances.
+
+## Solução Proposta
+
+### 1. Verificação Direta no BidPanel
+
+Em vez de confiar na prop `userHasBids`, fazer uma verificação direta:
 
 ```text
-ANTES (recursivo):
-  lot_id IN (SELECT b.lot_id FROM bids b WHERE b.user_id = auth.uid())
-
-DEPOIS (seguro):
-  public.user_has_bid_on_lot(lot_id)
+┌─────────────────────────────────────────────────────────────┐
+│  BidPanel (atualizado)                                      │
+│  ─────────────────────────────────────────────────          │
+│  1. Receber userHasBids como prop                           │
+│  2. Adicionar verificação local com useEffect               │
+│  3. Usar estado combinado para determinar minBid            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 3. Testar Acesso
+### 2. Criar Hook de Verificação de Participação
 
-Após a migração, usuários poderão:
-- Ver lances de lotes nos quais já participaram
-- Administradores e oxy_hackers continuam com acesso total
-- Usuários sem lances no lote não verão os lances (comportamento esperado de "sealed-bid")
+Criar um novo hook `useUserHasBidOnLot` que faz uma RPC call direta para `user_has_bid_on_lot`:
+
+```typescript
+// hooks/useUserHasBidOnLot.ts
+export function useUserHasBidOnLot(lotId: string) {
+  const [hasBid, setHasBid] = useState<boolean | null>(null);
+  
+  useEffect(() => {
+    supabase.rpc("user_has_bid_on_lot", { _lot_id: lotId })
+      .then(({ data }) => setHasBid(!!data));
+  }, [lotId]);
+  
+  return hasBid;
+}
+```
+
+### 3. Atualizar BidPanel
+
+```typescript
+// BidPanel.tsx
+const userHasBidsViaRPC = useUserHasBidOnLot(lot.id);
+const effectiveUserHasBids = userHasBids || userHasBidsViaRPC;
+
+const minBid = effectiveUserHasBids 
+  ? Number(lot.current_price) + 0.01 
+  : Number(lot.current_price) + Number(lot.min_bid_increment);
+```
 
 ---
 
-## Detalhes Técnicos
-
-### Migração SQL
-
-```sql
--- 1. Criar função SECURITY DEFINER para verificar participação
-CREATE OR REPLACE FUNCTION public.user_has_bid_on_lot(_lot_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.bids
-    WHERE lot_id = _lot_id
-      AND user_id = auth.uid()
-  )
-$$;
-
--- 2. Recriar política sem recursão
-DROP POLICY IF EXISTS "bids_select_lot_participants" ON public.bids;
-
-CREATE POLICY "bids_select_lot_participants"
-ON public.bids
-FOR SELECT
-USING (
-  public.user_has_bid_on_lot(lot_id)
-  OR public.is_admin()
-  OR public.is_oxy_hacker()
-);
-```
-
-### Por que isso funciona?
-
-| Aspecto | Antes | Depois |
-|---------|-------|--------|
-| Consulta interna | SELECT na mesma tabela → recursão | Função SECURITY DEFINER → bypass RLS |
-| Performance | Falha | Execução normal |
-| Segurança | Não funcional | Mantém restrição de visibilidade |
-
----
-
-## Arquivos Afetados
+## Arquivos a Modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `supabase/migrations/[nova].sql` | Criar função e recriar política |
-| `src/integrations/supabase/types.ts` | Atualizado automaticamente |
+| `src/hooks/useUserHasBidOnLot.ts` | Criar hook para verificar participação via RPC |
+| `src/components/auction/BidPanel.tsx` | Usar o novo hook como fallback |
+| `src/pages/LotDetail.tsx` | Manter passagem da prop como otimização |
+
+---
+
+## Fluxo Atualizado
+
+```text
+┌───────────────────────────────────────────────────────────────────┐
+│                       Fluxo de Validação de Lance                  │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  1. Usuário acessa lote                                           │
+│     └──> useLotDetail carrega bids (pode falhar RLS)              │
+│                                                                    │
+│  2. BidPanel renderiza                                            │
+│     ├──> Recebe userHasBids da prop (lot.bids.some)               │
+│     └──> useUserHasBidOnLot faz RPC direto (garantido)            │
+│                                                                    │
+│  3. Cálculo de minBid                                             │
+│     └──> Usa effectiveUserHasBids (prop OU rpc)                   │
+│                                                                    │
+│  4. Validação frontend                                            │
+│     ├──> amount >= minBid                                         │
+│     └──> amount <= balance                                        │
+│                                                                    │
+│  5. place-bid Edge Function                                       │
+│     └──> place_bid_atomic (validação final)                       │
+│                                                                    │
+└───────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Validação
 
-Após aplicar:
-1. Acessar `/marketplace` e clicar em qualquer lote
-2. A página de detalhes do lote deve carregar sem erro
-3. Os lances devem aparecer apenas se o usuário logado tiver participado daquele lote
+Após implementar:
+1. Usuário com lance anterior pode dar qualquer valor > preço atual
+2. Usuário sem lance anterior precisa respeitar incremento mínimo
+3. Validação funciona mesmo se RLS não retornar bids na lista
+
