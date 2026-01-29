@@ -25,6 +25,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminAssets from "./pages/admin/AdminAssets";
 import AdminLots from "./pages/admin/AdminLots";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 
 import NotFound from "./pages/NotFound";
 
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/admin/categories" element={<AdminCategories />} />
               <Route path="/admin/assets" element={<AdminAssets />} />
               <Route path="/admin/lots" element={<AdminLots />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />

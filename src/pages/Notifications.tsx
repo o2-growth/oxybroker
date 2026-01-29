@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, CheckCheck, Gavel, Wallet, Package } from "lucide-react";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import type { Database } from "@/integrations/supabase/types";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
@@ -23,6 +24,7 @@ const typeConfig: Record<
 
 export default function Notifications() {
   const { user } = useAuth();
+  const { trackAction } = useAnalytics();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,6 +72,7 @@ export default function Notifications() {
   }, [user]);
 
   const markAsRead = async (id: string) => {
+    trackAction("mark_read", undefined, "notification", id);
     await supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
@@ -83,6 +86,7 @@ export default function Notifications() {
 
     if (unreadIds.length === 0) return;
 
+    trackAction("mark_all_read", { count: unreadIds.length });
     await supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })

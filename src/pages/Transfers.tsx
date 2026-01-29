@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useTransfers } from "@/hooks/useTransfers";
 import { useTransferBalance } from "@/hooks/useTransferBalance";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +31,16 @@ export default function Transfers() {
   const { wallet } = useWallet();
   const { transfers, loading, refetch } = useTransfers();
   const { transferBalance, loading: transferring } = useTransferBalance();
+  const { trackAction, trackDomainEvent } = useAnalytics();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [amount, setAmount] = useState("");
+
+  const handleDialogOpen = (open: boolean) => {
+    setDialogOpen(open);
+    if (open) trackAction("transfer_dialog_open");
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -53,12 +60,16 @@ export default function Transfers() {
     const numAmount = parseFloat(amount.replace(",", "."));
     if (!recipientEmail || isNaN(numAmount) || numAmount <= 0) return;
 
+    trackAction("transfer_submit", { amount: numAmount });
     const result = await transferBalance(recipientEmail, numAmount);
     if (result.success) {
+      trackDomainEvent("transfer_completed", "success", { amount: numAmount });
       setDialogOpen(false);
       setRecipientEmail("");
       setAmount("");
       refetch();
+    } else {
+      trackDomainEvent("transfer_completed", "error");
     }
   };
 
@@ -76,7 +87,7 @@ export default function Transfers() {
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={handleDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Send className="h-4 w-4" />

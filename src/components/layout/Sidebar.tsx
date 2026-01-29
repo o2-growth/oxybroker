@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Users,
   Target,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const adminItems = [
   { title: "Categorias", url: "/admin/categories", icon: FolderTree },
   { title: "Ativos", url: "/admin/assets", icon: Package },
   { title: "Lotes", url: "/admin/lots", icon: Layers },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
 ];
 
 export function Sidebar() {

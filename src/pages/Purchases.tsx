@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Package, RotateCcw, Clock, AlertCircle } from "lucide-react";
 import { useRequestReturn } from "@/hooks/useRequestReturn";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import type { Database } from "@/integrations/supabase/types";
 import {
   Dialog,
@@ -30,6 +31,7 @@ interface PurchaseWithDetails extends Purchase {
 export default function Purchases() {
   const { user } = useAuth();
   const { requestReturn, loading: returning } = useRequestReturn();
+  const { trackAction, trackDomainEvent } = useAnalytics();
   const [purchases, setPurchases] = useState<PurchaseWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
@@ -116,12 +118,16 @@ export default function Purchases() {
   const handleRequestReturn = async () => {
     if (!selectedPurchase) return;
 
+    trackAction("return_request_submit", undefined, "purchase", selectedPurchase.id);
     const result = await requestReturn(selectedPurchase.id, returnReason || undefined);
     if (result.success) {
+      trackDomainEvent("return_requested", "success", undefined, "purchase", selectedPurchase.id);
       setReturnDialogOpen(false);
       setSelectedPurchase(null);
       setReturnReason("");
       fetchPurchases();
+    } else {
+      trackDomainEvent("return_requested", "error", undefined, "purchase", selectedPurchase.id);
     }
   };
 
