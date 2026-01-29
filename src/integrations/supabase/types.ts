@@ -786,6 +786,7 @@ export type Database = {
         Args: { p_amount: number; p_from_user_id: string; p_to_user_id: string }
         Returns: Json
       }
+      user_has_bid_on_lot: { Args: { _lot_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "master_franquia" | "franquia" | "oxy_hacker"
