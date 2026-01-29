@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlaceBid } from "@/hooks/usePlaceBid";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserHasBidOnLot } from "@/hooks/useUserHasBidOnLot";
+import { useUserMaxBidOnLot } from "@/hooks/useUserMaxBidOnLot";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
   const { placeBid, loading } = usePlaceBid();
   const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
   const { hasBid: hasBidViaRPC } = useUserHasBidOnLot(lot.id);
+  const { maxBid: userMaxBid, refetch: refetchMaxBid } = useUserMaxBidOnLot(lot.id);
   const [bidIncrement, setBidIncrement] = useState("");
   const [wasExtended, setWasExtended] = useState(false);
 
@@ -60,7 +62,13 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
     : Number(lot.min_bid_increment);
 
   const balance = wallet ? Number(wallet.balance) : 0;
-  const hasInsufficientBalance = bidIncrement && calculatedTotal > balance;
+  
+  // Calculate required balance: only the difference for returning bidders
+  const requiredBalance = userMaxBid > 0
+    ? Math.max(0, calculatedTotal - userMaxBid)
+    : calculatedTotal;
+
+  const hasInsufficientBalance = bidIncrement && requiredBalance > balance;
 
   // Reset extended animation after a few seconds
   useEffect(() => {
@@ -91,11 +99,13 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
       return;
     }
 
-    // Frontend validation for insufficient balance
-    if (calculatedTotal > balance) {
+    // Frontend validation for insufficient balance (using required balance, not total)
+    if (requiredBalance > balance) {
       toast({
         title: "Saldo insuficiente",
-        description: `Seu saldo é ${formatCurrency(balance)}. Recarregue sua carteira.`,
+        description: userMaxBid > 0
+          ? `Você precisa de ${formatCurrency(requiredBalance)} a mais para este lance. Seu saldo: ${formatCurrency(balance)}.`
+          : `Seu saldo é ${formatCurrency(balance)}. Recarregue sua carteira.`,
         variant: "destructive",
       });
       return;
@@ -115,6 +125,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
 
       setBidIncrement("");
       refetchWallet(); // Refresh wallet balance after successful bid
+      refetchMaxBid(); // Refresh user's max bid
       onBidPlaced?.();
     } else {
       toast({
@@ -191,7 +202,13 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
       {hasInsufficientBalance && (
         <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
           <AlertCircle className="h-4 w-4" />
-          <span>Saldo insuficiente para este lance.</span>
+          <span>
+            Saldo insuficiente. 
+            {userMaxBid > 0 
+              ? ` Necessário: ${formatCurrency(requiredBalance)} (diferença do seu lance anterior).`
+              : ` Necessário: ${formatCurrency(requiredBalance)}.`
+            }
+          </span>
         </div>
       )}
 
