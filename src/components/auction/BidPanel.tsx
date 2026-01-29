@@ -4,13 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Gavel, AlertTriangle, Clock, Zap, Wallet, AlertCircle } from "lucide-react";
+import { Loader2, Gavel, AlertTriangle, Clock, Zap, Wallet, AlertCircle, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlaceBid } from "@/hooks/usePlaceBid";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserHasBidOnLot } from "@/hooks/useUserHasBidOnLot";
 import { useUserMaxBidOnLot } from "@/hooks/useUserMaxBidOnLot";
+import { useActivePromotion } from "@/hooks/useActivePromotion";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -63,10 +64,17 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
 
   const balance = wallet ? Number(wallet.balance) : 0;
   
-  // Calculate required balance: only the difference for returning bidders
-  const requiredBalance = userMaxBid > 0
+  // Check for active promotion on bids
+  const { promotion: bidPromotion, calculateBenefit } = useActivePromotion("bid", calculatedTotal);
+  const discountAmount = bidPromotion ? calculateBenefit(calculatedTotal) : 0;
+  
+  // Calculate required balance: only the difference for returning bidders, minus any discount
+  const baseRequiredBalance = userMaxBid > 0
     ? Math.max(0, calculatedTotal - userMaxBid)
     : calculatedTotal;
+  
+  // Apply discount to required balance
+  const requiredBalance = Math.max(0, baseRequiredBalance - discountAmount);
 
   const hasInsufficientBalance = bidIncrement && requiredBalance > balance;
 
@@ -231,11 +239,33 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
 
         {/* Show calculated total when user is typing */}
         {incrementValue > 0 && (
-          <div className="bg-primary/10 border border-primary/20 rounded-md p-3">
-            <p className="text-xs text-muted-foreground mb-1">Seu lance será:</p>
-            <p className="text-xl font-bold text-primary tabular-nums">
-              {formatCurrency(calculatedTotal)}
-            </p>
+          <div className="space-y-2">
+            <div className="bg-primary/10 border border-primary/20 rounded-md p-3">
+              <p className="text-xs text-muted-foreground mb-1">Seu lance será:</p>
+              <p className="text-xl font-bold text-primary tabular-nums">
+                {formatCurrency(calculatedTotal)}
+              </p>
+            </div>
+            
+            {/* Promotion discount info */}
+            {bidPromotion && discountAmount > 0 && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-md p-3">
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
+                  <Gift className="h-4 w-4" />
+                  <span className="text-xs font-medium">{bidPromotion.name}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Desconto de{" "}
+                  <span className="font-medium text-green-600 dark:text-green-400">
+                    {formatCurrency(discountAmount)}
+                  </span>
+                  {" • Débito real: "}
+                  <span className="font-medium">
+                    {formatCurrency(requiredBalance)}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
