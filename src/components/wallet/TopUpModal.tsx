@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTopUp } from "@/hooks/useTopUp";
-import { Loader2 } from "lucide-react";
+import { useActivePromotion } from "@/hooks/useActivePromotion";
+import { Loader2, Gift } from "lucide-react";
 
 interface TopUpModalProps {
   open: boolean;
@@ -44,6 +45,13 @@ export function TopUpModal({ open, onOpenChange }: TopUpModalProps) {
 
   const amount = getAmount();
   const isValid = amount >= 10 && amount <= 10000;
+
+  // Check for active promotion
+  const { promotion, calculateBenefit } = useActivePromotion("topup", amount);
+  const benefitAmount = promotion ? calculateBenefit(amount) : 0;
+  const finalAmount = promotion?.type === "discount" 
+    ? amount // Discount doesn't change what you receive for topup
+    : amount + benefitAmount; // Cashback/bonus adds to the amount
 
   const handleSubmit = async () => {
     if (!isValid) return;
@@ -107,14 +115,52 @@ export function TopUpModal({ open, onOpenChange }: TopUpModalProps) {
             </p>
           </div>
 
+          {/* Active promotion banner */}
+          {promotion && amount > 0 && (
+            <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+              <div className="flex items-center gap-2 text-primary mb-2">
+                <Gift className="h-4 w-4" />
+                <span className="font-medium text-sm">{promotion.name}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {promotion.type === "cashback" || promotion.type === "discount" ? (
+                  <>
+                    {promotion.benefit_type === "percentage" 
+                      ? `Bônus de ${promotion.benefit_value}%` 
+                      : `Bônus de ${formatCurrency(promotion.benefit_value)}`
+                    }
+                    {" • "}
+                    <span className="text-primary font-medium">
+                      +{formatCurrency(benefitAmount)}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            </div>
+          )}
+
           {/* Summary and submit */}
           <div className="space-y-4">
             {amount > 0 && (
-              <div className="rounded-lg bg-muted p-4">
+              <div className="rounded-lg bg-muted p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Valor a adicionar</span>
-                  <span className="text-lg font-semibold">
+                  <span className="text-sm text-muted-foreground">Valor da recarga</span>
+                  <span className="text-sm tabular-nums">
                     {formatCurrency(amount)}
+                  </span>
+                </div>
+                {benefitAmount > 0 && (
+                  <div className="flex items-center justify-between text-primary">
+                    <span className="text-sm">Bônus da promoção</span>
+                    <span className="text-sm font-medium tabular-nums">
+                      +{formatCurrency(benefitAmount)}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t pt-2 flex items-center justify-between">
+                  <span className="text-sm font-medium">Você receberá</span>
+                  <span className="text-lg font-semibold text-primary tabular-nums">
+                    {formatCurrency(finalAmount)}
                   </span>
                 </div>
               </div>

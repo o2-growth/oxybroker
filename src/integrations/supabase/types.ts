@@ -479,6 +479,181 @@ export type Database = {
           },
         ]
       }
+      promotion_eligibility: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          id: string
+          promotion_id: string
+          user_id: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          promotion_id: string
+          user_id?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          promotion_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_eligibility_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "franchise_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_eligibility_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotion_schedules: {
+        Row: {
+          created_at: string
+          days_of_week: number[] | null
+          end_time: string | null
+          ends_at: string | null
+          id: string
+          promotion_id: string
+          schedule_type: Database["public"]["Enums"]["schedule_type"]
+          start_time: string | null
+          starts_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          days_of_week?: number[] | null
+          end_time?: string | null
+          ends_at?: string | null
+          id?: string
+          promotion_id: string
+          schedule_type: Database["public"]["Enums"]["schedule_type"]
+          start_time?: string | null
+          starts_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          days_of_week?: number[] | null
+          end_time?: string | null
+          ends_at?: string | null
+          id?: string
+          promotion_id?: string
+          schedule_type?: Database["public"]["Enums"]["schedule_type"]
+          start_time?: string | null
+          starts_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_schedules_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotion_usage: {
+        Row: {
+          benefit_amount: number
+          created_at: string
+          id: string
+          original_amount: number
+          promotion_id: string
+          reference_id: string | null
+          reference_type: string
+          user_id: string
+        }
+        Insert: {
+          benefit_amount: number
+          created_at?: string
+          id?: string
+          original_amount: number
+          promotion_id: string
+          reference_id?: string | null
+          reference_type: string
+          user_id: string
+        }
+        Update: {
+          benefit_amount?: number
+          created_at?: string
+          id?: string
+          original_amount?: number
+          promotion_id?: string
+          reference_id?: string | null
+          reference_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_usage_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotions: {
+        Row: {
+          applies_to: Database["public"]["Enums"]["promotion_applies_to"]
+          benefit_type: Database["public"]["Enums"]["benefit_type"]
+          benefit_value: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          eligibility: Database["public"]["Enums"]["eligibility_type"]
+          id: string
+          is_active: boolean
+          max_benefit: number | null
+          min_amount: number | null
+          name: string
+          type: Database["public"]["Enums"]["promotion_type"]
+          updated_at: string
+        }
+        Insert: {
+          applies_to: Database["public"]["Enums"]["promotion_applies_to"]
+          benefit_type: Database["public"]["Enums"]["benefit_type"]
+          benefit_value: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility?: Database["public"]["Enums"]["eligibility_type"]
+          id?: string
+          is_active?: boolean
+          max_benefit?: number | null
+          min_amount?: number | null
+          name: string
+          type: Database["public"]["Enums"]["promotion_type"]
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: Database["public"]["Enums"]["promotion_applies_to"]
+          benefit_type?: Database["public"]["Enums"]["benefit_type"]
+          benefit_value?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility?: Database["public"]["Enums"]["eligibility_type"]
+          id?: string
+          is_active?: boolean
+          max_benefit?: number | null
+          min_amount?: number | null
+          name?: string
+          type?: Database["public"]["Enums"]["promotion_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       purchases: {
         Row: {
           amount: number
@@ -745,9 +920,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_promotion: {
+        Args: {
+          p_applies_to: string
+          p_original_amount: number
+          p_reference_id: string
+          p_reference_type: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       buy_now_atomic: {
         Args: { p_lot_id: string; p_user_id: string }
         Returns: Json
+      }
+      calculate_promotion_benefit: {
+        Args: { p_original_amount: number; p_promotion_id: string }
+        Returns: number
       }
       close_auction_atomic: { Args: { p_lot_id: string }; Returns: Json }
       credit_wallet: {
@@ -759,6 +948,17 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      get_active_promotion: {
+        Args: { p_amount: number; p_applies_to: string; p_user_id: string }
+        Returns: {
+          benefit_type: string
+          benefit_value: number
+          max_benefit: number
+          name: string
+          promotion_id: string
+          type: string
+        }[]
       }
       get_user_max_bid_on_lot: { Args: { _lot_id: string }; Returns: number }
       get_user_role: {
@@ -774,6 +974,14 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_oxy_hacker: { Args: never; Returns: boolean }
+      is_promotion_schedule_active: {
+        Args: { p_promotion_id: string }
+        Returns: boolean
+      }
+      is_user_eligible_for_promotion: {
+        Args: { p_promotion_id: string; p_user_id: string }
+        Returns: boolean
+      }
       place_bid_atomic: {
         Args: { p_amount: number; p_lot_id: string; p_user_id: string }
         Returns: Json
@@ -799,10 +1007,15 @@ export type Database = {
         | "returned"
         | "disabled"
       asset_type: "lead" | "mlq" | "meeting" | "mql" | "client"
+      benefit_type: "percentage" | "fixed"
+      eligibility_type: "global" | "category" | "individual"
       lot_status: "draft" | "live" | "ended" | "cancelled"
       notification_channel: "in_app" | "email"
+      promotion_applies_to: "topup" | "bid" | "purchase"
+      promotion_type: "discount" | "cashback"
       purchase_status: "paid" | "refunded" | "disputed"
       return_status: "requested" | "approved" | "rejected" | "processed"
+      schedule_type: "one_time" | "recurring"
       transfer_status: "completed" | "reversed"
       transfer_type: "balance" | "asset"
       wallet_transaction_type:
@@ -951,10 +1164,15 @@ export const Constants = {
         "disabled",
       ],
       asset_type: ["lead", "mlq", "meeting", "mql", "client"],
+      benefit_type: ["percentage", "fixed"],
+      eligibility_type: ["global", "category", "individual"],
       lot_status: ["draft", "live", "ended", "cancelled"],
       notification_channel: ["in_app", "email"],
+      promotion_applies_to: ["topup", "bid", "purchase"],
+      promotion_type: ["discount", "cashback"],
       purchase_status: ["paid", "refunded", "disputed"],
       return_status: ["requested", "approved", "rejected", "processed"],
+      schedule_type: ["one_time", "recurring"],
       transfer_status: ["completed", "reversed"],
       transfer_type: ["balance", "asset"],
       wallet_transaction_type: [

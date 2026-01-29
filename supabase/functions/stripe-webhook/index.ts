@@ -208,11 +208,31 @@ async function processStripeEvent(
       // Convert from cents to currency units
       const amount = amountTotal / 100;
 
+      // Check for active promotion and apply bonus
+      const { data: promoResult } = await supabase.rpc("apply_promotion", {
+        p_user_id: userId,
+        p_applies_to: "topup",
+        p_original_amount: amount,
+        p_reference_type: "stripe_checkout",
+        p_reference_id: session.id,
+      });
+
+      // Calculate final amount (original + bonus if cashback/bonus type)
+      let finalAmount = amount;
+      let description = `Recarga via Stripe - ${session.id}`;
+      
+      if (promoResult?.has_promotion) {
+        // For topup, both discount and cashback work as a bonus (add to amount)
+        finalAmount = amount + promoResult.benefit_amount;
+        description = `Recarga via Stripe - ${session.id} (inclui bônus de ${promoResult.promotion_name}: R$ ${promoResult.benefit_amount.toFixed(2)})`;
+        console.log(`🎁 Promotion applied: ${promoResult.promotion_name}, bonus: ${promoResult.benefit_amount}`);
+      }
+
       // Credit wallet using atomic function - no fallback, fail fast
       const { data: creditResult, error: walletError } = await supabase.rpc("credit_wallet", {
         p_user_id: userId,
-        p_amount: amount,
-        p_description: `Recarga via Stripe - ${session.id}`,
+        p_amount: finalAmount,
+        p_description: description,
         p_reference_type: "stripe_checkout",
         p_reference_id: session.id,
       });
@@ -235,10 +255,14 @@ async function processStripeEvent(
         status: "success",
         metadata: {
           amount_bucket: getAmountBucket(amount),
+          original_amount: amount,
+          final_amount: finalAmount,
+          has_promotion: promoResult?.has_promotion || false,
+          promotion_name: promoResult?.promotion_name || null,
         },
       });
 
-      console.log(`💰 Credited ${amount} to wallet for user ${userId}`);
+      console.log(`💰 Credited ${finalAmount} to wallet for user ${userId} (original: ${amount})`);
       return { success: true };
     }
 
