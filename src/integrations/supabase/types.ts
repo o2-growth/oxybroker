@@ -676,6 +676,10 @@ export type Database = {
         Returns: Json
       }
       process_return_atomic: { Args: { p_return_id: string }; Returns: Json }
+      request_withdrawal_atomic: {
+        Args: { p_amount: number; p_bank_info: Json; p_user_id: string }
+        Returns: Json
+      }
       transfer_balance_atomic: {
         Args: { p_amount: number; p_from_user_id: string; p_to_user_id: string }
         Returns: Json
