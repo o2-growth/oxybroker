@@ -30,11 +30,18 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Validate JWT and get claims
+    // Validate JWT and get claims using getClaims
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
     
-    if (claimsError || !claimsData?.claims) {
+    console.log("Claims result:", { 
+      hasData: !!claimsData, 
+      hasClaims: !!claimsData?.claims,
+      error: claimsError?.message 
+    });
+    
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error("Claims error:", claimsError);
       return new Response(
         JSON.stringify({ error: "Token inválido" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -42,15 +49,18 @@ Deno.serve(async (req) => {
     }
 
     const adminId = claimsData.claims.sub as string;
+    console.log("Authenticated user:", adminId);
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify caller is admin
+    // Verify caller is admin using has_role function
     const { data: hasAdminRole, error: roleError } = await supabaseAdmin.rpc("has_role", {
       _user_id: adminId,
       _role: "admin",
     });
+
+    console.log("Admin check:", { adminId, hasAdminRole, roleError: roleError?.message });
 
     if (roleError || !hasAdminRole) {
       return new Response(
