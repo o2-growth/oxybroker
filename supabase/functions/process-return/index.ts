@@ -50,19 +50,15 @@ serve(async (req) => {
 
     // =============================================
     // VALIDATE ADMIN ROLE
+    // Use has_role() with explicit user_id - is_admin() doesn't work with service role client
     // =============================================
 
-    const { data: isAdmin } = await supabaseAdmin.rpc("is_admin");
+    const { data: hasAdminRole, error: roleError } = await supabaseAdmin.rpc("has_role", {
+      _user_id: user.id,
+      _role: "admin",
+    });
 
-    // Check using user_roles table as fallback
-    const { data: userRole } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (!isAdmin && !userRole) {
+    if (roleError || !hasAdminRole) {
       return new Response(
         JSON.stringify({ success: false, error: "Apenas administradores podem processar devoluções" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
