@@ -760,6 +760,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_user_max_bid_on_lot: { Args: { _lot_id: string }; Returns: number }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
