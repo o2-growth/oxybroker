@@ -30,25 +30,25 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Validate JWT and get claims using getClaims
+    // Validate JWT and get authenticated user (pass token explicitly for server-side validation)
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-    
-    console.log("Claims result:", { 
-      hasData: !!claimsData, 
-      hasClaims: !!claimsData?.claims,
-      error: claimsError?.message 
+    const { data: userData, error: userError } = await supabaseUser.auth.getUser(token);
+
+    console.log("Auth result:", {
+      hasUser: !!userData?.user,
+      userId: userData?.user?.id,
+      error: userError?.message,
     });
-    
-    if (claimsError || !claimsData?.claims?.sub) {
-      console.error("Claims error:", claimsError);
+
+    if (userError || !userData?.user?.id) {
+      console.error("Auth error:", userError);
       return new Response(
         JSON.stringify({ error: "Token inválido" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const adminId = claimsData.claims.sub as string;
+    const adminId = userData.user.id;
     console.log("Authenticated user:", adminId);
 
     // Create admin client for privileged operations
@@ -108,75 +108,53 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get target user's wallet
-    const { data: wallet, error: walletError } = await supabaseAdmin
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", user_id)
-      .maybeSingle();
+    // Executar ajuste de saldo de forma atômica via função SQL.
+    // A função admin_adjust_balance_atomic usa FOR UPDATE para serializar
+    // acessos concorrentes à mesma wallet, eliminando a race condition
+    // do fluxo anterior (SELECT → UPDATE → INSERT sem transação).
+    const { data: result, error: rpcError } = await supabaseAdmin.rpc(
+      "admin_adjust_balance_atomic",
+      {
+        p_user_id:  user_id,
+        p_amount:   amount,
+        p_reason:   reason.trim(),
+        p_admin_id: adminId,
+      }
+    );
 
-    if (walletError) {
-      console.error("Error fetching wallet:", walletError);
+    if (rpcError) {
+      console.error("Error in admin_adjust_balance_atomic:", rpcError);
+
+      // Traduzir erros conhecidos do PostgreSQL para mensagens amigáveis
+      const pgMessage = rpcError.message ?? "";
+      if (pgMessage.includes("Wallet not found")) {
+        return new Response(
+          JSON.stringify({ error: "Carteira do usuário não encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (pgMessage.includes("Insufficient balance")) {
+        return new Response(
+          JSON.stringify({ error: "Saldo insuficiente para este ajuste" }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ error: "Erro ao buscar carteira do usuário" }),
+        JSON.stringify({ error: "Erro ao ajustar saldo" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!wallet) {
-      return new Response(
-        JSON.stringify({ error: "Carteira do usuário não encontrada" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const newBalance = Number(wallet.balance) + amount;
-
-    // Update wallet balance
-    const { error: updateError } = await supabaseAdmin
-      .from("wallets")
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq("user_id", user_id);
-
-    if (updateError) {
-      console.error("Error updating wallet:", updateError);
-      return new Response(
-        JSON.stringify({ error: "Erro ao atualizar saldo" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Insert wallet transaction
-    const { error: txError } = await supabaseAdmin.from("wallet_transactions").insert({
-      user_id: user_id,
-      type: "admin_adjust",
-      amount: amount,
-      description: reason.trim(),
-      reference_type: "admin_adjustment",
-      reference_id: adminId,
-    });
-
-    if (txError) {
-      console.error("Error inserting transaction:", txError);
-      // Try to rollback the balance update
-      await supabaseAdmin
-        .from("wallets")
-        .update({ balance: wallet.balance })
-        .eq("user_id", user_id);
-      
-      return new Response(
-        JSON.stringify({ error: "Erro ao registrar transação" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    const newBalance = (result as { new_balance: number }).new_balance;
     console.log(`Admin ${adminId} added ${amount} to user ${user_id}. Reason: ${reason}`);
 
+    // Mesma assinatura de resposta do endpoint original para não quebrar o frontend
     return new Response(
       JSON.stringify({
-        success: true,
+        success:     true,
         new_balance: newBalance,
-        message: `R$ ${amount.toFixed(2)} adicionado com sucesso`,
+        message:     `R$ ${amount.toFixed(2)} adicionado com sucesso`,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

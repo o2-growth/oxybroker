@@ -4,7 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { OutbidNotificationProvider } from "@/components/providers/OutbidNotificationProvider";
+import { ProtectedRoute } from "@/components/routes/ProtectedRoute";
+import { AdminRoute } from "@/components/routes/AdminRoute";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -39,37 +42,137 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <OutbidNotificationProvider>
-            <Routes>
-              {/* Redirect root to marketplace */}
-              <Route path="/" element={<Navigate to="/marketplace" replace />} />
-              
-              {/* Auth routes */}
-              <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/signup" element={<Signup />} />
-              
-              {/* Main routes */}
-              <Route path="/marketplace" element={<Marketplace />} />
-              <Route path="/lots/:id" element={<LotDetail />} />
-              <Route path="/my-auctions" element={<MyAuctions />} />
-              <Route path="/wallet" element={<WalletPage />} />
-              <Route path="/transfers" element={<Transfers />} />
-              <Route path="/purchases" element={<Purchases />} />
-              <Route path="/notifications" element={<Notifications />} />
-              
-              {/* Admin routes */}
-              <Route path="/admin/settings" element={<AdminSettings />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/categories" element={<AdminCategories />} />
-              <Route path="/admin/assets" element={<AdminAssets />} />
-              <Route path="/admin/lots" element={<AdminLots />} />
-              <Route path="/admin/analytics" element={<AdminAnalytics />} />
-              <Route path="/admin/promotions" element={<AdminPromotions />} />
-              
-              {/* 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </OutbidNotificationProvider>
+          <AuthProvider>
+            <OutbidNotificationProvider>
+              <Routes>
+                {/* Redirect root to marketplace */}
+                <Route path="/" element={<Navigate to="/marketplace" replace />} />
+
+                {/* Auth routes — publicas */}
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/signup" element={<Signup />} />
+
+                {/* Main routes — requerem autenticacao */}
+                <Route
+                  path="/marketplace"
+                  element={
+                    <ProtectedRoute>
+                      <Marketplace />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/lots/:id"
+                  element={
+                    <ProtectedRoute>
+                      <LotDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/my-auctions"
+                  element={
+                    <ProtectedRoute>
+                      <MyAuctions />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/wallet"
+                  element={
+                    <ProtectedRoute>
+                      <WalletPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/transfers"
+                  element={
+                    <ProtectedRoute>
+                      <Transfers />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/purchases"
+                  element={
+                    <ProtectedRoute>
+                      <Purchases />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notifications"
+                  element={
+                    <ProtectedRoute>
+                      <Notifications />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Admin routes — requerem role 'admin' */}
+                <Route
+                  path="/admin/settings"
+                  element={
+                    <AdminRoute>
+                      <AdminSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <AdminRoute>
+                      <AdminUsers />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/categories"
+                  element={
+                    <AdminRoute>
+                      <AdminCategories />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/assets"
+                  element={
+                    <AdminRoute>
+                      <AdminAssets />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/lots"
+                  element={
+                    <AdminRoute>
+                      <AdminLots />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/analytics"
+                  element={
+                    <AdminRoute>
+                      <AdminAnalytics />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/promotions"
+                  element={
+                    <AdminRoute>
+                      <AdminPromotions />
+                    </AdminRoute>
+                  }
+                />
+
+                {/* 404 */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </OutbidNotificationProvider>
+          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
