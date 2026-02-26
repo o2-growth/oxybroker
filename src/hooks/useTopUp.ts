@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface UseTopUpReturn {
   createCheckout: (amount: number) => Promise<void>;
@@ -12,9 +12,7 @@ export function useTopUp(): UseTopUpReturn {
 
   const createCheckout = async (amount: number) => {
     if (amount < 10 || amount > 10000) {
-      toast({
-        variant: "destructive",
-        title: "Valor inválido",
+      toast.error("Valor inválido", {
         description: "O valor deve ser entre R$ 10 e R$ 10.000",
       });
       return;
@@ -44,12 +42,9 @@ export function useTopUp(): UseTopUpReturn {
 
       // Reseta loading após abrir a aba (UX melhor)
       setLoading(false);
-    } catch (error: any) {
-      console.error("Error creating checkout:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao iniciar recarga",
-        description: error.message || "Tente novamente mais tarde",
+    } catch (error) {
+      toast.error("Erro ao iniciar recarga", {
+        description: error instanceof Error ? error.message : "Tente novamente mais tarde",
       });
       setLoading(false);
     }
