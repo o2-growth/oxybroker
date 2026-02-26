@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CountdownTimer } from "@/components/auction/CountdownTimer";
 import { Target, Trophy, AlertTriangle, Gavel, ArrowRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 function AuctionCard({ item }: { item: MyAuctionItem }) {
   const { lot, myHighestBid, lotHighestBid, status, isActive } = item;
@@ -57,19 +58,13 @@ function AuctionCard({ item }: { item: MyAuctionItem }) {
               <div>
                 <span className="text-xs uppercase tracking-wider">Seu lance</span>
                 <p className="font-medium text-foreground tabular-nums">
-                  {new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  }).format(myHighestBid)}
+                  {formatCurrency(myHighestBid)}
                 </p>
               </div>
               <div>
                 <span className="text-xs uppercase tracking-wider">Lance atual</span>
                 <p className="font-medium text-foreground tabular-nums">
-                  {new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  }).format(lotHighestBid)}
+                  {formatCurrency(lotHighestBid)}
                 </p>
               </div>
               {isActive && lot.ends_at && (

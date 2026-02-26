@@ -1,14 +1,14 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Package, RotateCcw, Clock, AlertCircle } from "lucide-react";
 import { useRequestReturn } from "@/hooks/useRequestReturn";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import type { Database } from "@/integrations/supabase/types";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { usePurchases } from "@/hooks/usePurchases";
+import type { PurchaseWithDetails } from "@/hooks/usePurchases";
 import {
   Dialog,
   DialogContent,
@@ -20,78 +20,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-type Purchase = Database["public"]["Tables"]["purchases"]["Row"];
-type Return = Database["public"]["Tables"]["returns"]["Row"];
-
-interface PurchaseWithDetails extends Purchase {
-  lot: { title: string } | null;
-  return_request?: Return | null;
-}
-
 export default function Purchases() {
-  const { user } = useAuth();
+  const { data: purchases = [], isLoading: loading, refetch } = usePurchases();
   const { requestReturn, loading: returning } = useRequestReturn();
   const { trackAction, trackDomainEvent } = useAnalytics();
-  const [purchases, setPurchases] = useState<PurchaseWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseWithDetails | null>(null);
   const [returnReason, setReturnReason] = useState("");
 
-  const fetchPurchases = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("purchases")
-      .select("*, lot:lots(title)")
-      .eq("buyer_user_id", user.id)
-      .order("purchased_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    // Fetch any return requests for these purchases
-    const purchaseIds = data?.map((p) => p.id) || [];
-    const { data: returns } = await supabase
-      .from("returns")
-      .select("*")
-      .in("purchase_id", purchaseIds);
-
-    const returnMap = new Map(returns?.map((r) => [r.purchase_id, r]) || []);
-
-    const enrichedPurchases: PurchaseWithDetails[] = (data || []).map((p) => ({
-      ...p,
-      return_request: returnMap.get(p.id) || null,
-    }));
-
-    setPurchases(enrichedPurchases);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchPurchases();
-  }, [user]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  };
-
   const canReturn = (purchase: PurchaseWithDetails) => {
     if (!purchase.return_deadline_at) return false;
-    if (purchase.return_request) return false; // Already requested
+    if (purchase.return_request) return false;
     return (
       new Date(purchase.return_deadline_at) > new Date() &&
       purchase.status === "paid"
@@ -125,7 +64,7 @@ export default function Purchases() {
       setReturnDialogOpen(false);
       setSelectedPurchase(null);
       setReturnReason("");
-      fetchPurchases();
+      refetch();
     } else {
       trackDomainEvent("return_requested", "error", undefined, "purchase", selectedPurchase.id);
     }

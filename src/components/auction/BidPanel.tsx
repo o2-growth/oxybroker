@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Gavel, AlertTriangle, Clock, Zap, Wallet, AlertCircle, Gift } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlaceBid } from "@/hooks/usePlaceBid";
 import { useWallet } from "@/hooks/useWallet";
@@ -14,6 +14,7 @@ import { useUserMaxBidOnLot } from "@/hooks/useUserMaxBidOnLot";
 import { useActivePromotion } from "@/hooks/useActivePromotion";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
 
@@ -22,13 +23,6 @@ interface BidPanelProps {
   userHasBids?: boolean;
   onBidPlaced?: () => void;
 }
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-};
 
 const parseCurrencyInput = (value: string): number => {
   // Remove currency symbol, dots (thousand separators), and convert comma to dot
@@ -41,7 +35,6 @@ const parseCurrencyInput = (value: string): number => {
 
 export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const { placeBid, loading } = usePlaceBid();
   const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
   const { hasBid: hasBidViaRPC } = useUserHasBidOnLot(lot.id);
@@ -88,44 +81,38 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
 
   const handleBid = async () => {
     if (!user) {
-      toast({
-        title: "Faça login",
-        description: "Você precisa estar logado para dar lances.",
-        variant: "destructive",
-      });
+      toast.error("Você precisa estar logado para dar lances.");
       return;
     }
 
     if (isNaN(incrementValue) || incrementValue < minIncrement) {
-      toast({
-        title: "Incremento inválido",
-        description: effectiveUserHasBids 
+      toast.error(
+        effectiveUserHasBids
           ? "Digite um valor maior que zero para adicionar ao lance."
-          : `O incremento mínimo é ${formatCurrency(minIncrement)}`,
-        variant: "destructive",
-      });
+          : `O incremento mínimo é ${formatCurrency(minIncrement)}`
+      );
       return;
     }
 
     // Frontend validation for insufficient balance (using required balance, not total)
     if (requiredBalance > balance) {
-      toast({
-        title: "Saldo insuficiente",
-        description: userMaxBid > 0
+      toast.error(
+        userMaxBid > 0
           ? `Você precisa de ${formatCurrency(requiredBalance)} a mais para este lance. Seu saldo: ${formatCurrency(balance)}.`
-          : `Seu saldo é ${formatCurrency(balance)}. Recarregue sua carteira.`,
-        variant: "destructive",
-      });
+          : `Seu saldo é ${formatCurrency(balance)}. Recarregue sua carteira.`
+      );
       return;
     }
 
     const result = await placeBid(lot.id, calculatedTotal);
 
     if (result.success) {
-      toast({
-        title: result.data?.was_extended ? "🚀 Lance aceito + tempo estendido!" : "✅ Lance aceito!",
-        description: result.message,
-      });
+      toast.success(
+        result.data?.was_extended
+          ? "Lance aceito + tempo estendido!"
+          : "Lance aceito!",
+        { description: result.message }
+      );
 
       if (result.data?.was_extended) {
         setWasExtended(true);
@@ -136,11 +123,7 @@ export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProp
       refetchMaxBid(); // Refresh user's max bid
       onBidPlaced?.();
     } else {
-      toast({
-        title: "Erro ao dar lance",
-        description: result.error || "Tente novamente.",
-        variant: "destructive",
-      });
+      toast.error(result.error || "Tente novamente.");
     }
   };
 

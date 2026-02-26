@@ -57,6 +57,7 @@ import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useAdminLots } from "@/hooks/useAdminLots";
 import { useAssets } from "@/hooks/useAssets";
 import type { Database } from "@/integrations/supabase/types";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
 type LotStatus = Database["public"]["Enums"]["lot_status"];
@@ -122,21 +123,6 @@ export default function AdminLots() {
   const [lotToPublish, setLotToPublish] = useState<Lot | null>(null);
   const [lotToCancel, setLotToCancel] = useState<Lot | null>(null);
   const [formData, setFormData] = useState(emptyFormData);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDate = (date: string | null) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleString("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  };
 
   const formatDateTimeLocal = (date: string | null) => {
     if (!date) return "";
@@ -366,10 +352,10 @@ export default function AdminLots() {
                           {formatCurrency(Number(lot.current_price))}
                         </td>
                         <td className="text-sm text-muted-foreground">
-                          {formatDate(lot.starts_at)}
+                          {lot.starts_at ? formatDate(lot.starts_at) : "-"}
                         </td>
                         <td className="text-sm text-muted-foreground">
-                          {formatDate(lot.ends_at)}
+                          {lot.ends_at ? formatDate(lot.ends_at) : "-"}
                         </td>
                         <td>
                           <DropdownMenu>

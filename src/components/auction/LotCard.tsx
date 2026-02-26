@@ -6,6 +6,7 @@ import { CountdownTimer } from "./CountdownTimer";
 import { Gavel, Package, Users, ArrowRight } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
 
@@ -31,13 +32,6 @@ const badgeVariants = {
 export function LotCard({ lot, assetCount = 0, bidCount = 0 }: LotCardProps) {
   const status = statusConfig[lot.status as keyof typeof statusConfig];
   const isLive = lot.status === "live";
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
 
   return (
     <Card

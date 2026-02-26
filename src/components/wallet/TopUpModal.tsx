@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useTopUp } from "@/hooks/useTopUp";
 import { useActivePromotion } from "@/hooks/useActivePromotion";
 import { Loader2, Gift } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 
 interface TopUpModalProps {
   open: boolean;
@@ -56,13 +57,6 @@ export function TopUpModal({ open, onOpenChange }: TopUpModalProps) {
   const handleSubmit = async () => {
     if (!isValid) return;
     await createCheckout(amount);
-  };
-
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
   };
 
   return (

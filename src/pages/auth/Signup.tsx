@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Eye, EyeOff, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -27,7 +27,6 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
 
   const {
@@ -54,17 +53,14 @@ export default function Signup() {
 
       if (error) throw error;
 
-      toast({
-        title: "Conta criada!",
+      toast.success("Conta criada!", {
         description: "Você já pode acessar o marketplace.",
       });
 
       navigate("/marketplace");
-    } catch (error: any) {
-      toast({
-        title: "Erro no cadastro",
-        description: error.message || "Não foi possível criar a conta",
-        variant: "destructive",
+    } catch (error) {
+      toast.error("Erro no cadastro", {
+        description: error instanceof Error ? error.message : "Não foi possível criar a conta",
       });
     } finally {
       setLoading(false);

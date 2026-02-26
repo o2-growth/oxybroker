@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { queryKeys } from "@/lib/query-keys";
 import type { Database } from "@/integrations/supabase/types";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
@@ -23,11 +24,10 @@ interface LotFilters {
 
 export function useAdminLots(filters: LotFilters = {}) {
   const { search, status, page = 1, pageSize = 10 } = filters;
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["admin-lots", search, status, page, pageSize],
+    queryKey: queryKeys.lots.list({ search, status, page, pageSize }),
     queryFn: async () => {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -78,18 +78,11 @@ export function useAdminLots(filters: LotFilters = {}) {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      toast({
-        title: "Lote criado",
-        description: "O lote foi criado com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      toast.success("Lote criado", { description: "O lote foi criado com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao criar lote",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao criar lote", { description: error.message });
     },
   });
 
@@ -124,18 +117,11 @@ export function useAdminLots(filters: LotFilters = {}) {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      toast({
-        title: "Lote atualizado",
-        description: "O lote foi atualizado com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      toast.success("Lote atualizado", { description: "O lote foi atualizado com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar lote",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar lote", { description: error.message });
     },
   });
 
@@ -161,19 +147,12 @@ export function useAdminLots(filters: LotFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Ativo vinculado",
-        description: "O ativo foi vinculado ao lote com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Ativo vinculado", { description: "O ativo foi vinculado ao lote com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao vincular ativo",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao vincular ativo", { description: error.message });
     },
   });
 
@@ -201,19 +180,12 @@ export function useAdminLots(filters: LotFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Ativo removido",
-        description: "O ativo foi removido do lote com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Ativo removido", { description: "O ativo foi removido do lote com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao remover ativo",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao remover ativo", { description: error.message });
     },
   });
 
@@ -265,19 +237,12 @@ export function useAdminLots(filters: LotFilters = {}) {
       if (updateAssetsError) throw updateAssetsError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Lote publicado",
-        description: "O lote está agora disponível no marketplace.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Lote publicado", { description: "O lote está agora disponível no marketplace." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao publicar lote",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao publicar lote", { description: error.message });
     },
   });
 
@@ -320,19 +285,12 @@ export function useAdminLots(filters: LotFilters = {}) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Lote cancelado",
-        description: "O lote foi cancelado e os ativos foram liberados.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Lote cancelado", { description: "O lote foi cancelado e os ativos foram liberados." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao cancelar lote",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao cancelar lote", { description: error.message });
     },
   });
 
@@ -368,18 +326,11 @@ export function useAdminLots(filters: LotFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
-      toast({
-        title: "Lote excluído",
-        description: "O lote foi excluído com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.lots.all });
+      toast.success("Lote excluído", { description: "O lote foi excluído com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao excluir lote",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao excluir lote", { description: error.message });
     },
   });
 

@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -45,7 +43,6 @@ export function useUsers(options: UseUsersOptions = {}) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  const { toast } = useToast();
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -102,21 +99,17 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       setUsers(formattedUsers);
       setTotalCount(count || 0);
-    } catch (error: any) {
-      toast({
-        title: "Erro ao carregar usuários",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast.error("Erro ao carregar usuários", { description: error instanceof Error ? error.message : String(error) });
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, toast]);
+  }, [page, pageSize]);
 
   const updateUser = async (userId: string, data: UpdateUserData) => {
     try {
       // Update profiles table
-      const updateData: Record<string, any> = {};
+      const updateData: UpdateUserData = {};
       if (data.full_name !== undefined) updateData.full_name = data.full_name;
       if (data.role !== undefined) updateData.role = data.role;
       if (data.franchise_category_id !== undefined) updateData.franchise_category_id = data.franchise_category_id;
@@ -139,19 +132,14 @@ export function useUsers(options: UseUsersOptions = {}) {
         if (roleError) throw roleError;
       }
 
-      toast({
-        title: "Usuário atualizado",
+      toast.success("Usuário atualizado", {
         description: "As alterações foram salvas com sucesso.",
       });
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro ao atualizar usuário",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast.error("Erro ao atualizar usuário", { description: error instanceof Error ? error.message : String(error) });
       return false;
     }
   };
@@ -167,8 +155,7 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       if (error) throw error;
 
-      toast({
-        title: suspend ? "Usuário suspenso" : "Usuário reativado",
+      toast.success(suspend ? "Usuário suspenso" : "Usuário reativado", {
         description: suspend
           ? "O usuário foi suspenso e não poderá acessar o sistema."
           : "O usuário foi reativado com sucesso.",
@@ -176,12 +163,8 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro ao alterar status",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast.error("Erro ao alterar status", { description: error instanceof Error ? error.message : String(error) });
       return false;
     }
   };
@@ -202,7 +185,7 @@ export function useUsers(options: UseUsersOptions = {}) {
       // Note: We cannot delete from auth.users via client SDK
       // The profile will remain but user cannot login
       // For full deletion, admin needs to use Supabase dashboard
-      
+
       const { error: profileError } = await supabase
         .from("profiles")
         .delete()
@@ -210,69 +193,40 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       if (profileError) throw profileError;
 
-      toast({
-        title: "Usuário excluído",
+      toast.success("Usuário excluído", {
         description: "O perfil do usuário foi removido do sistema.",
       });
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro ao excluir usuário",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast.error("Erro ao excluir usuário", { description: error instanceof Error ? error.message : String(error) });
       return false;
     }
   };
 
   const createUser = async (data: CreateUserData) => {
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        toast({
-          title: "Erro de autenticação",
-          description: "Você precisa estar logado para criar usuários.",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke("create-user", {
+        body: {
           email: data.email,
           password: data.password,
           full_name: data.full_name,
           role: data.role,
           franchise_category_id: data.franchise_category_id,
-        }),
+        },
       });
 
-      const result = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
-        throw new Error(result.error || "Erro ao criar usuário");
-      }
-
-      toast({
-        title: "Usuário criado",
+      toast.success("Usuário criado", {
         description: `O usuário ${data.full_name} foi criado com sucesso.`,
       });
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro ao criar usuário",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error) {
+      toast.error("Erro ao criar usuário", { description: error instanceof Error ? error.message : String(error) });
       return false;
     }
   };

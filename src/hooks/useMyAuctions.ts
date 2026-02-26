@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { queryKeys } from "@/lib/query-keys";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Lot = Tables<"lots">;
@@ -18,7 +19,7 @@ export function useMyAuctions() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["my-auctions", user?.id],
+    queryKey: [...queryKeys.myAuctions.all, user?.id],
     queryFn: async (): Promise<MyAuctionItem[]> => {
       if (!user?.id) return [];
 

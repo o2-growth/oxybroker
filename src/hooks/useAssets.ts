@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { queryKeys } from "@/lib/query-keys";
 import type { Database } from "@/integrations/supabase/types";
 
 type Asset = Database["public"]["Tables"]["assets"]["Row"];
@@ -19,11 +20,10 @@ interface AssetFilters {
 
 export function useAssets(filters: AssetFilters = {}) {
   const { search, status, type, page = 1, pageSize = 10 } = filters;
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["assets", search, status, type, page, pageSize],
+    queryKey: [...queryKeys.assets.all, search, status, type, page, pageSize],
     queryFn: async () => {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -59,7 +59,7 @@ export function useAssets(filters: AssetFilters = {}) {
 
   // Fetch available assets (for linking to lots)
   const { data: availableAssets = [] } = useQuery({
-    queryKey: ["assets", "available"],
+    queryKey: [...queryKeys.assets.all, "available"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assets")
@@ -84,18 +84,11 @@ export function useAssets(filters: AssetFilters = {}) {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Ativo criado",
-        description: "O ativo foi criado com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Ativo criado", { description: "O ativo foi criado com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao criar ativo",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao criar ativo", { description: error.message });
     },
   });
 
@@ -125,18 +118,11 @@ export function useAssets(filters: AssetFilters = {}) {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Ativo atualizado",
-        description: "O ativo foi atualizado com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Ativo atualizado", { description: "O ativo foi atualizado com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar ativo",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar ativo", { description: error.message });
     },
   });
 
@@ -153,18 +139,11 @@ export function useAssets(filters: AssetFilters = {}) {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Status atualizado",
-        description: "O status do ativo foi atualizado com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Status atualizado", { description: "O status do ativo foi atualizado com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar status",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar status", { description: error.message });
     },
   });
 
@@ -203,18 +182,11 @@ export function useAssets(filters: AssetFilters = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({
-        title: "Ativo excluído",
-        description: "O ativo foi excluído com sucesso.",
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
+      toast.success("Ativo excluído", { description: "O ativo foi excluído com sucesso." });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao excluir ativo",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao excluir ativo", { description: error.message });
     },
   });
 

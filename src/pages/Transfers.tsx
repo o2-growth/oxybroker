@@ -16,6 +16,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { useTransfers } from "@/hooks/useTransfers";
 import { useTransferBalance } from "@/hooks/useTransferBalance";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { formatCurrency, formatDate } from "@/lib/format";
 import {
   Dialog,
   DialogContent,
@@ -40,20 +41,6 @@ export default function Transfers() {
   const handleDialogOpen = (open: boolean) => {
     setDialogOpen(open);
     if (open) trackAction("transfer_dialog_open");
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
   };
 
   const handleTransfer = async () => {

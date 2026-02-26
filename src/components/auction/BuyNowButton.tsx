@@ -13,9 +13,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useBuyNow } from "@/hooks/useBuyNow";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 interface BuyNowButtonProps {
   lotId: string;
@@ -28,13 +29,6 @@ interface BuyNowButtonProps {
   onPurchased?: () => void;
 }
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-};
-
 export function BuyNowButton({
   lotId,
   lotTitle,
@@ -46,7 +40,6 @@ export function BuyNowButton({
   onPurchased,
 }: BuyNowButtonProps) {
   const { buyNow, loading } = useBuyNow();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -61,19 +54,14 @@ export function BuyNowButton({
     const result = await buyNow(lotId);
 
     if (result.success) {
-      toast({
-        title: "🎉 Compra realizada com sucesso!",
+      toast.success("Compra realizada com sucesso!", {
         description: `Você adquiriu "${result.data?.lot_title}" por ${formatCurrency(result.data?.buy_now_price || 0)}`,
       });
       setOpen(false);
       onPurchased?.();
       navigate("/purchases");
     } else {
-      toast({
-        title: "Erro na compra",
-        description: result.error || "Tente novamente.",
-        variant: "destructive",
-      });
+      toast.error(result.error || "Tente novamente.");
     }
   };
 

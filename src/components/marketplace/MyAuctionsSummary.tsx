@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CountdownTimer } from "@/components/auction/CountdownTimer";
 import { Target, Trophy, AlertTriangle, ArrowRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 export function MyAuctionsSummary() {
   const { user } = useAuth();
@@ -68,10 +69,7 @@ export function MyAuctionsSummary() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="tabular-nums">
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(item.lotHighestBid)}
+                      {formatCurrency(item.lotHighestBid)}
                     </span>
                     {item.lot.ends_at && (
                       <span className="flex items-center gap-1">

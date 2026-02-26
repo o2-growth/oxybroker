@@ -16,8 +16,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TopUpModal } from "@/components/wallet/TopUpModal";
 import { WithdrawModal } from "@/components/wallet/WithdrawModal";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 const transactionTypeConfig = {
   topup: {
@@ -87,8 +88,7 @@ export default function WalletPage() {
   useEffect(() => {
     const topupStatus = searchParams.get("topup");
     if (topupStatus === "success") {
-      toast({
-        title: "Pagamento processado!",
+      toast.success("Pagamento processado!", {
         description: "Seu saldo será atualizado em instantes.",
       });
       trackDomainEvent("topup_confirmed", "success");
@@ -96,29 +96,13 @@ export default function WalletPage() {
       // Refetch wallet data after a short delay
       setTimeout(() => refetch(), 2000);
     } else if (topupStatus === "cancelled") {
-      toast({
-        variant: "destructive",
-        title: "Recarga cancelada",
+      toast.error("Recarga cancelada", {
         description: "A operação foi cancelada.",
       });
       trackDomainEvent("topup_cancelled", "cancelled");
       setSearchParams({});
     }
   }, [searchParams, setSearchParams, refetch, trackDomainEvent]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  };
 
   if (authLoading) {
     return (

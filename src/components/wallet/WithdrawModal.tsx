@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useWithdraw, BankInfo } from "@/hooks/useWithdraw";
 import { Loader2 } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 
 interface WithdrawModalProps {
   open: boolean;
@@ -92,12 +93,6 @@ export function WithdrawModal({
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

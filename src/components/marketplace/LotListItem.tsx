@@ -5,6 +5,7 @@ import { CountdownTimer } from "@/components/auction/CountdownTimer";
 import { Gavel, Package, Users, ArrowRight, MapPin, Building } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
 type AssetType = Database["public"]["Enums"]["asset_type"];
@@ -48,13 +49,6 @@ const badgeVariants = {
 export function LotListItem({ lot }: LotListItemProps) {
   const status = statusConfig[lot.status as keyof typeof statusConfig];
   const isLive = lot.status === "live";
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
 
   // Get unique asset types
   const assetTypes = [...new Set(lot.assets.map((a) => a.asset_type))];

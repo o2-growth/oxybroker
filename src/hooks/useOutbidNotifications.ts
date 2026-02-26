@@ -1,7 +1,8 @@
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { formatCurrency } from "@/lib/format";
 
 interface OutbidPayload {
   lot_id: string;
@@ -12,14 +13,6 @@ interface OutbidPayload {
 
 export function useOutbidNotifications() {
   const { user } = useAuth();
-  const { toast } = useToast();
-
-  const formatCurrency = useCallback((value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -34,10 +27,8 @@ export function useOutbidNotifications() {
       .on("broadcast", { event: "outbid" }, (payload) => {
         const data = payload.payload as OutbidPayload;
 
-        toast({
-          title: "Você foi ultrapassado!",
+        toast.error("Você foi ultrapassado!", {
           description: `Seu lance de ${formatCurrency(data.your_bid)} no lote "${data.lot_title}" foi superado por ${formatCurrency(data.new_bid)}.`,
-          variant: "destructive",
           duration: 8000,
         });
       })
@@ -46,5 +37,5 @@ export function useOutbidNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, toast, formatCurrency]);
+  }, [user]);
 }

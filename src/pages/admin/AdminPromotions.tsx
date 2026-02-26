@@ -48,6 +48,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 const typeLabels: Record<string, string> = {
   discount: "Desconto",
@@ -99,13 +100,6 @@ export default function AdminPromotions() {
 
     return matchesSearch && matchesType && matchesAppliesTo && matchesStatus;
   });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
 
   const handleEdit = (promo: Promotion) => {
     setEditingPromotion(promo);

@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuctionStatus } from "@/hooks/useAuctionStatus";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
   lead: "Lead",
@@ -37,20 +38,6 @@ export default function LotDetail() {
   const { wallet, refetch: refetchWallet } = useWallet();
   const auctionStatus = useAuctionStatus(lot?.bids || []);
   const { trackAction, trackDomainEvent } = useAnalytics();
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  };
 
   const handlePurchased = () => {
     refetch();

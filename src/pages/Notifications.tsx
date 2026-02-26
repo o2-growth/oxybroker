@@ -1,18 +1,17 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, CheckCheck, Gavel, Wallet, Package } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Bell, CheckCheck, Gavel, Wallet, Package } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useNotifications } from "@/hooks/useNotifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
 const typeConfig: Record<
   string,
-  { icon: any; className: string }
+  { icon: LucideIcon; className: string }
 > = {
   bid_outbid: { icon: Gavel, className: "bg-oxy-warning/10 text-oxy-warning" },
   bid_won: { icon: Gavel, className: "bg-oxy-success/10 text-oxy-success" },
@@ -23,74 +22,20 @@ const typeConfig: Record<
 };
 
 export default function Notifications() {
-  const { user } = useAuth();
   const { trackAction } = useAnalytics();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { notifications, loading, markAsRead, markAllAsRead } = useNotifications();
 
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchNotifications = async () => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error(error);
-      } else {
-        setNotifications(data || []);
-      }
-      setLoading(false);
-    };
-
-    fetchNotifications();
-
-    // Realtime subscription
-    const channel = supabase
-      .channel("user-notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  const markAsRead = async (id: string) => {
-    trackAction("mark_read", undefined, "notification", id);
-    await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", id);
+  const handleMarkAsRead = (notification: Notification) => {
+    if (notification.read_at) return;
+    trackAction("mark_read", undefined, "notification", notification.id);
+    markAsRead.mutate(notification.id);
   };
 
-  const markAllAsRead = async () => {
-    const unreadIds = notifications
-      .filter((n) => !n.read_at)
-      .map((n) => n.id);
-
+  const handleMarkAllAsRead = () => {
+    const unreadIds = notifications.filter((n) => !n.read_at).map((n) => n.id);
     if (unreadIds.length === 0) return;
-
     trackAction("mark_all_read", { count: unreadIds.length });
-    await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .in("id", unreadIds);
+    markAllAsRead.mutate(unreadIds);
   };
 
   const formatDate = (date: string) => {
@@ -122,7 +67,12 @@ export default function Notifications() {
             </p>
           </div>
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              disabled={markAllAsRead.isPending}
+            >
               <CheckCheck className="h-4 w-4 mr-2" />
               Marcar todas como lidas
             </Button>
@@ -159,7 +109,7 @@ export default function Notifications() {
                   className={`oxy-card p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors ${
                     !isRead ? "border-l-2 border-l-primary" : ""
                   }`}
-                  onClick={() => !isRead && markAsRead(notification.id)}
+                  onClick={() => handleMarkAsRead(notification)}
                 >
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${config.className}`}
@@ -173,7 +123,7 @@ export default function Notifications() {
                       }`}
                     >
                       {notification.title ||
-                        (notification.payload as any)?.message ||
+                        (notification.payload as Record<string, string>)?.message ||
                         "Nova notificação"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">

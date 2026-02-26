@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -23,7 +23,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
 
   const {
@@ -44,17 +43,14 @@ export default function Login() {
 
       if (error) throw error;
 
-      toast({
-        title: "Login realizado!",
+      toast.success("Login realizado!", {
         description: "Bem-vindo de volta ao Oxy Broker.",
       });
 
       navigate("/marketplace");
-    } catch (error: any) {
-      toast({
-        title: "Erro no login",
-        description: error.message || "Credenciais inválidas",
-        variant: "destructive",
+    } catch (error) {
+      toast.error("Erro no login", {
+        description: error instanceof Error ? error.message : "Credenciais inválidas",
       });
     } finally {
       setLoading(false);

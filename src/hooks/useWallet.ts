@@ -1,66 +1,73 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { queryKeys } from "@/lib/query-keys";
 import type { Database } from "@/integrations/supabase/types";
 
 type Wallet = Database["public"]["Tables"]["wallets"]["Row"];
 type Transaction = Database["public"]["Tables"]["wallet_transactions"]["Row"];
 
+interface WalletData {
+  wallet: Wallet;
+  transactions: Transaction[];
+  canWithdraw: boolean;
+}
+
+async function fetchWalletData(userId: string): Promise<WalletData> {
+  const [walletResult, txResult, profileResult] = await Promise.all([
+    supabase
+      .from("wallets")
+      .select("*")
+      .eq("user_id", userId)
+      .single(),
+    supabase
+      .from("wallet_transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("profiles")
+      .select("can_withdraw")
+      .eq("id", userId)
+      .single(),
+  ]);
+
+  if (walletResult.error) throw walletResult.error;
+  if (txResult.error) throw txResult.error;
+  if (profileResult.error) throw profileResult.error;
+
+  return {
+    wallet: walletResult.data,
+    transactions: txResult.data ?? [],
+    canWithdraw: profileResult.data?.can_withdraw ?? false,
+  };
+}
+
 export function useWallet() {
   const { user } = useAuth();
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [canWithdraw, setCanWithdraw] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchWallet = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: user
+      ? queryKeys.wallet.balance(user.id)
+      : (["wallet", "balance", ""] as const),
+    queryFn: () => fetchWalletData(user!.id),
+    enabled: Boolean(user),
+  });
 
-    setLoading(true);
-    setError(null);
+  const error = queryError ? (queryError as Error).message : null;
 
-    try {
-      const { data: walletData, error: walletError } = await supabase
-        .from("wallets")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (walletError) throw walletError;
-      setWallet(walletData);
-
-      const { data: txData, error: txError } = await supabase
-        .from("wallet_transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (txError) throw txError;
-      setTransactions(txData || []);
-
-      // Fetch can_withdraw from profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("can_withdraw")
-        .eq("id", user.id)
-        .single();
-
-      setCanWithdraw(profileData?.can_withdraw ?? false);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  return {
+    wallet: data?.wallet ?? null,
+    transactions: data?.transactions ?? [],
+    canWithdraw: data?.canWithdraw ?? false,
+    loading,
+    error,
+    refetch,
   };
-
-  useEffect(() => {
-    fetchWallet();
-  }, [user]);
-
-  return { wallet, transactions, canWithdraw, loading, error, refetch: fetchWallet };
 }

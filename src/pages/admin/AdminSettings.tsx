@@ -1,80 +1,31 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { useRoleGuard } from "@/hooks/useRoleGuard";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Settings, Save, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-interface AppSettings {
-  id: string;
-  return_window_hours: number;
-  bidding_extension_seconds: number;
-  scoring_weights: Record<string, number>;
-}
+import { useAppSettings } from "@/hooks/useAppSettings";
+import type { AppSettings } from "@/hooks/useAppSettings";
 
 export default function AdminSettings() {
   const { loading: authLoading } = useRoleGuard("admin");
-  const { toast } = useToast();
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { settings, loading, saving, save } = useAppSettings();
 
+  // Local state para formulario controlado
+  const [localSettings, setLocalSettings] = useState<AppSettings | null>(null);
+
+  // Sincroniza o estado local quando os dados chegam do servidor
   useEffect(() => {
-    const fetchSettings = async () => {
-      const { data, error } = await supabase
-        .from("app_settings")
-        .select("*")
-        .single();
-
-      if (error) {
-        console.error(error);
-      } else if (data) {
-        setSettings({
-          id: data.id,
-          return_window_hours: data.return_window_hours,
-          bidding_extension_seconds: data.bidding_extension_seconds,
-          scoring_weights: (data.scoring_weights as Record<string, number>) || {},
-        });
-      }
-      setLoading(false);
-    };
-
-    fetchSettings();
-  }, []);
-
-  const handleSave = async () => {
-    if (!settings) return;
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("app_settings")
-        .update({
-          return_window_hours: settings.return_window_hours,
-          bidding_extension_seconds: settings.bidding_extension_seconds,
-          scoring_weights: settings.scoring_weights,
-        })
-        .eq("id", settings.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Configurações salvas",
-        description: "As alterações foram aplicadas com sucesso.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
+    if (settings) {
+      setLocalSettings(settings);
     }
+  }, [settings]);
+
+  const handleSave = () => {
+    if (!localSettings) return;
+    save(localSettings);
   };
 
   if (authLoading || loading) {
@@ -101,7 +52,7 @@ export default function AdminSettings() {
           </p>
         </div>
 
-        {settings && (
+        {localSettings && (
           <div className="space-y-6">
             <div className="oxy-card p-6 space-y-6">
               <h2 className="font-semibold">Leilão</h2>
@@ -113,10 +64,10 @@ export default function AdminSettings() {
                 <Input
                   id="return_window"
                   type="number"
-                  value={settings.return_window_hours}
+                  value={localSettings.return_window_hours}
                   onChange={(e) =>
-                    setSettings({
-                      ...settings,
+                    setLocalSettings({
+                      ...localSettings,
                       return_window_hours: parseInt(e.target.value) || 0,
                     })
                   }
@@ -134,10 +85,10 @@ export default function AdminSettings() {
                 <Input
                   id="bidding_extension"
                   type="number"
-                  value={settings.bidding_extension_seconds}
+                  value={localSettings.bidding_extension_seconds}
                   onChange={(e) =>
-                    setSettings({
-                      ...settings,
+                    setLocalSettings({
+                      ...localSettings,
                       bidding_extension_seconds: parseInt(e.target.value) || 0,
                     })
                   }
@@ -153,7 +104,7 @@ export default function AdminSettings() {
               <h2 className="font-semibold">Pesos de Scoring</h2>
 
               <div className="grid grid-cols-2 gap-4">
-                {Object.entries(settings.scoring_weights || {}).map(
+                {Object.entries(localSettings.scoring_weights || {}).map(
                   ([key, value]) => (
                     <div key={key} className="space-y-2">
                       <Label htmlFor={`weight_${key}`} className="capitalize">
@@ -164,10 +115,10 @@ export default function AdminSettings() {
                         type="number"
                         value={value}
                         onChange={(e) =>
-                          setSettings({
-                            ...settings,
+                          setLocalSettings({
+                            ...localSettings,
                             scoring_weights: {
-                              ...settings.scoring_weights,
+                              ...localSettings.scoring_weights,
                               [key]: parseInt(e.target.value) || 0,
                             },
                           })

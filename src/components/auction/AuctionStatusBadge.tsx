@@ -1,5 +1,6 @@
 import { Trophy, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 import type { AuctionStatus } from "@/hooks/useAuctionStatus";
 
 interface AuctionStatusBadgeProps {
@@ -7,13 +8,6 @@ interface AuctionStatusBadgeProps {
   myBidAmount?: number | null;
   className?: string;
 }
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-};
 
 export function AuctionStatusBadge({
   status,

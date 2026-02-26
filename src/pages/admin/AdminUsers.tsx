@@ -4,7 +4,8 @@ import { useRoleGuard } from "@/hooks/useRoleGuard";
 import { useUsers, UserProfile, UpdateUserData, CreateUserData } from "@/hooks/useUsers";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { formatCurrency } from "@/lib/format";
 import {
   Table,
   TableBody,
@@ -91,7 +92,6 @@ const PAGE_SIZE = 10;
 export default function AdminUsers() {
   useRoleGuard("admin");
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
@@ -198,19 +198,15 @@ export default function AdminUsers() {
 
   const handleCreate = async () => {
     if (!createData.email || !createData.password || !createData.full_name) {
-      toast({
-        title: "Campos obrigatórios",
+      toast.error("Campos obrigatórios", {
         description: "Preencha email, senha e nome completo.",
-        variant: "destructive",
       });
       return;
     }
 
     if (createData.password.length < 6) {
-      toast({
-        title: "Senha muito curta",
+      toast.error("Senha muito curta", {
         description: "A senha deve ter pelo menos 6 caracteres.",
-        variant: "destructive",
       });
       return;
     }
@@ -356,10 +352,7 @@ export default function AdminUsers() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(userProfile.wallet_balance)}
+                      {formatCurrency(userProfile.wallet_balance)}
                     </TableCell>
                     <TableCell>
                       {userProfile.suspended_at ? (

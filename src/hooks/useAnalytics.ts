@@ -29,28 +29,18 @@ interface LogEventParams {
 async function logEvent(params: LogEventParams): Promise<void> {
   try {
     const sessionId = getOrCreateSessionId();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    };
 
-    if (session?.access_token) {
-      headers["Authorization"] = `Bearer ${session.access_token}`;
-    }
-
-    // Fire and forget - don't block UI
-    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/log-event`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        ...params,
-        session_id: sessionId,
-      }),
-    }).catch((err) => {
-      console.warn("Analytics log failed:", err);
-    });
+    // Fire and forget — nao bloqueia a UI
+    supabase.functions
+      .invoke("log-event", {
+        body: {
+          ...params,
+          session_id: sessionId,
+        },
+      })
+      .catch((err) => {
+        console.warn("Analytics log failed:", err);
+      });
   } catch (err) {
     console.warn("Analytics error:", err);
   }

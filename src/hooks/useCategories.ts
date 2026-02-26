@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { queryKeys } from "@/lib/query-keys";
 import type { Database, Json } from "@/integrations/supabase/types";
 
 type Category = Database["public"]["Tables"]["franchise_categories"]["Row"];
@@ -14,11 +15,10 @@ interface UseCategoriesOptions {
 
 export function useCategories(options: UseCategoriesOptions = {}) {
   const { page = 1, pageSize = 12 } = options;
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["categories", page, pageSize],
+    queryKey: [...queryKeys.categories.all, page, pageSize],
     queryFn: async () => {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
@@ -46,7 +46,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       if (inputData.limits_json !== undefined) {
         insertData.limits_json = inputData.limits_json;
       }
-      
+
       const { data, error } = await supabase
         .from("franchise_categories")
         .insert([insertData])
@@ -57,18 +57,13 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast({
-        title: "Categoria criada",
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+      toast.success("Categoria criada", {
         description: "A categoria foi criada com sucesso.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao criar categoria",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao criar categoria", { description: error.message });
     },
   });
 
@@ -85,18 +80,13 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast({
-        title: "Categoria atualizada",
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+      toast.success("Categoria atualizada", {
         description: "A categoria foi atualizada com sucesso.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar categoria",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar categoria", { description: error.message });
     },
   });
 
@@ -122,18 +112,13 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast({
-        title: "Categoria excluída",
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+      toast.success("Categoria excluída", {
         description: "A categoria foi excluída com sucesso.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao excluir categoria",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao excluir categoria", { description: error.message });
     },
   });
 

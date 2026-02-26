@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { formatCurrency } from "@/lib/format";
 
 interface TransferResult {
   success: boolean;
@@ -13,7 +14,6 @@ interface TransferResult {
 
 export function useTransferBalance() {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   const transferBalance = async (
     toUserEmail: string,
@@ -41,29 +41,17 @@ export function useTransferBalance() {
         throw new Error(result.error || "Erro ao realizar transferência");
       }
 
-      toast({
-        title: "Transferência realizada!",
+      toast.success("Transferência realizada!", {
         description: `${formatCurrency(amount)} enviados para ${result.recipient_name}`,
       });
 
       return result;
     } catch (error: any) {
-      toast({
-        title: "Erro na transferência",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro na transferência", { description: error.message });
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
   };
 
   return { transferBalance, loading };
