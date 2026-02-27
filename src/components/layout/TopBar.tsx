@@ -90,7 +90,7 @@ export function TopBar() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user?.id]);
 
   return (
     <>
