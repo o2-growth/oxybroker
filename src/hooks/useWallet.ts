@@ -28,7 +28,7 @@ export function useWallet() {
         .from("wallets")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (walletError) throw walletError;
       setWallet(walletData);
@@ -48,7 +48,7 @@ export function useWallet() {
         .from("profiles")
         .select("can_withdraw")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       setCanWithdraw(profileData?.can_withdraw ?? false);
     } catch (err: any) {
@@ -60,7 +60,7 @@ export function useWallet() {
 
   useEffect(() => {
     fetchWallet();
-  }, [user]);
+  }, [user?.id]);
 
   return { wallet, transactions, canWithdraw, loading, error, refetch: fetchWallet };
 }

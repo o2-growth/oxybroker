@@ -133,6 +133,8 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
 
   // Fetch lots with filters - always live, sorted by ends_at
   useEffect(() => {
+    let cancelled = false;
+
     const fetchLots = async () => {
       setLoading(true);
       setError(null);
@@ -147,6 +149,7 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
 
         const { data: lotsData, error: lotsError } = await query;
         if (lotsError) throw lotsError;
+        if (cancelled) return;
 
         if (!lotsData || lotsData.length === 0) {
           setLots([]);
@@ -173,6 +176,8 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
           .from("bids")
           .select("lot_id")
           .in("lot_id", lotIds);
+
+        if (cancelled) return;
 
         // Map assets to lots
         const assetsByLot: Record<string, typeof assets> = {};
@@ -221,11 +226,17 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
           );
         }
 
-        setLots(lotsWithAssets);
+        if (!cancelled) {
+          setLots(lotsWithAssets);
+        }
       } catch (err: any) {
-        setError(err.message);
+        if (!cancelled) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
@@ -237,11 +248,14 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lots" },
-        () => fetchLots()
+        () => {
+          if (!cancelled) fetchLots();
+        }
       )
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
   }, [filters]);

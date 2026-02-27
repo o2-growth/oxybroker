@@ -73,7 +73,7 @@ export default function Purchases() {
 
   useEffect(() => {
     fetchPurchases();
-  }, [user]);
+  }, [user?.id]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

@@ -68,7 +68,7 @@ export function useTransfers() {
 
   useEffect(() => {
     fetchTransfers();
-  }, [user]);
+  }, [user?.id]);
 
   return { transfers, loading, error, refetch: fetchTransfers };
 }

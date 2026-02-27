@@ -18,7 +18,7 @@ export function useMyAuctions() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["my-auctions", user?.id],
+    queryKey: ["my-auctions", user?.id ?? "__none__"],
     queryFn: async (): Promise<MyAuctionItem[]> => {
       if (!user?.id) return [];
 
