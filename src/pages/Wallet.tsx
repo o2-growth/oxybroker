@@ -81,7 +81,7 @@ export default function WalletPage() {
     if (!authLoading && !user) {
       navigate("/auth/login");
     }
-  }, [user, authLoading, navigate]);
+  }, [user?.id, authLoading, navigate]);
 
   // Handle Stripe return query params
   useEffect(() => {
