@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { useMyAuctions, MyAuctionItem } from "@/hooks/useMyAuctions";
 import { useAuth } from "@/hooks/useAuth";
@@ -98,6 +98,7 @@ function AuctionCard({ item }: { item: MyAuctionItem }) {
 
 export default function MyAuctions() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: auctions = [], isLoading, error } = useMyAuctions();
 
   const activeAuctions = auctions.filter((a) => a.isActive);
@@ -202,7 +203,7 @@ export default function MyAuctions() {
               description="Você ainda não participou de nenhum leilão. Visite o Marketplace para dar seus primeiros lances."
               action={{
                 label: "Ir para Marketplace",
-                onClick: () => window.location.href = "/marketplace",
+                onClick: () => navigate("/marketplace"),
               }}
             />
           </Card>
