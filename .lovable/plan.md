@@ -1,27 +1,42 @@
 
 
-## Plan: Fix Stability Issues Across Hooks and Pages
+## Root Cause
 
-### Issues Found
+`useAuth()` is a plain hook, not a shared context. Every component that calls it (Sidebar, TopBar, each page) creates **its own independent state** and fetches the profile separately. When you navigate between pages:
 
-1. **App.tsx** — `QueryClient` has zero config, causing aggressive retries and refetches on every window focus
-2. **useWallet.ts** — Two `.single()` calls that throw PGRST116 if no row exists, triggering error loops with retries
-3. **useWallet.ts** — `useEffect` depends on `[user]` (object reference), causing re-fetches on every auth state change
-4. **useMarketplaceFilters.ts** — No cancellation on effect cleanup; stale responses can overwrite fresh data
-5. **useTransfers.ts** — `useEffect` depends on `[user]` instead of `[user?.id]`, same instability
-6. **useMyAuctions.ts** — Query key uses `undefined` when no user, can collide or cause unwanted caching
-7. **Purchases.tsx** — `useEffect` depends on `[user]` instead of `[user?.id]`
-8. **Notifications.tsx** — `useEffect` depends on `[user]` instead of `[user?.id]`
+1. Components remount, creating new `useAuth()` instances
+2. Each instance starts with `profile = null` and `loading = true`
+3. During the brief fetch window, `isAdmin()` returns `false` → admin section disappears
+4. Profile arrives → admin section reappears → **flicker**
 
-### Changes
+Additionally, in `onAuthStateChange` (line 48), `setLoading(false)` fires **before** the `setTimeout` profile fetch (line 33) resolves, so there's a window where `loading = false` but `profile` is still `null`.
 
-| File | Fix |
-|------|-----|
-| `src/App.tsx` | Configure QueryClient: `retry: 1`, `staleTime: 30_000`, `refetchOnWindowFocus: false` |
-| `src/hooks/useWallet.ts` | `.single()` → `.maybeSingle()` on both queries; dep `[user]` → `[user?.id]` |
-| `src/hooks/useMarketplaceFilters.ts` | Add `AbortController` / cancelled flag on fetchLots cleanup; add 15s timeout via `AbortSignal.timeout` |
-| `src/hooks/useTransfers.ts` | Dep `[user]` → `[user?.id]` |
-| `src/hooks/useMyAuctions.ts` | Query key: `["my-auctions", user?.id ?? "__none__"]` |
-| `src/pages/Purchases.tsx` | Dep `[user]` → `[user?.id]` |
-| `src/pages/Notifications.tsx` | Dep `[user]` → `[user?.id]` |
+## Fix
+
+Convert `useAuth` from a standalone hook into a **shared React Context** so auth state is fetched once and shared across all components.
+
+### Step 1: Create AuthContext provider
+
+- Create `src/contexts/AuthContext.tsx`
+- Move all state (`user`, `session`, `profile`, `loading`) and logic from `useAuth.ts` into a context provider
+- Fix the race condition: only set `loading = false` **after** profile is fetched
+- Export `AuthProvider` and `useAuth` hook that reads from context
+
+### Step 2: Update useAuth.ts
+
+- Replace the full implementation with a re-export from `AuthContext` for backward compatibility
+
+### Step 3: Wrap App with AuthProvider
+
+- In `App.tsx`, wrap routes with `<AuthProvider>` inside `<BrowserRouter>` (needs router for `useNavigate`)
+
+### Step 4: Fix TopBar dependency
+
+- In `TopBar.tsx` line 93, change `[user]` to `[user?.id]` to prevent unnecessary refetches (same pattern we fixed elsewhere)
+
+### Result
+
+- Auth state fetched once, shared everywhere
+- No more flicker on navigation — `profile` and `isAdmin()` are stable
+- Admin section stays visible consistently
 
