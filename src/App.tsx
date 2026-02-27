@@ -49,8 +49,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-          <OutbidNotificationProvider>
-            <Routes>
+            <OutbidNotificationProvider>
+              <Routes>
               {/* Redirect root to marketplace */}
               <Route path="/" element={<Navigate to="/marketplace" replace />} />
               
