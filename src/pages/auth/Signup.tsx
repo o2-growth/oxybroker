@@ -41,7 +41,7 @@ export default function Signup() {
   const onSubmit = async (data: SignupForm) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -54,12 +54,22 @@ export default function Signup() {
 
       if (error) throw error;
 
-      toast({
-        title: "Conta criada!",
-        description: "Você já pode acessar o marketplace.",
-      });
+      // Check if email confirmation is required
+      const needsConfirmation = authData.user && !authData.session;
 
-      navigate("/marketplace");
+      if (needsConfirmation) {
+        toast({
+          title: "Verifique seu email",
+          description: "Enviamos um link de confirmação para " + data.email,
+        });
+        navigate("/auth/login");
+      } else {
+        toast({
+          title: "Conta criada!",
+          description: "Bem-vindo ao Oxy Broker.",
+        });
+        navigate("/marketplace");
+      }
     } catch (error: any) {
       toast({
         title: "Erro no cadastro",

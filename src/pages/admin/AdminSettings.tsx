@@ -28,7 +28,7 @@ export default function AdminSettings() {
       const { data, error } = await supabase
         .from("app_settings")
         .select("*")
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error(error);
