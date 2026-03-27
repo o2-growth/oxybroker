@@ -44,12 +44,12 @@ export function useTopUp(): UseTopUpReturn {
 
       // Reseta loading após abrir a aba (UX melhor)
       setLoading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating checkout:", error);
       toast({
         variant: "destructive",
         title: "Erro ao iniciar recarga",
-        description: error.message || "Tente novamente mais tarde",
+        description: error instanceof Error ? error.message : "Tente novamente mais tarde",
       });
       setLoading(false);
     }

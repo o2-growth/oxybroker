@@ -3,6 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -17,6 +18,7 @@ import {
   Layers,
   LogOut,
   Gavel,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -35,6 +37,7 @@ const adminItems = [
   { title: "Categorias", url: "/admin/categories", icon: FolderTree },
   { title: "Ativos", url: "/admin/assets", icon: Package },
   { title: "Lotes", url: "/admin/lots", icon: Layers },
+  { title: "Devoluções", url: "/admin/returns", icon: RotateCcw },
 ];
 
 interface MobileDrawerProps {
@@ -65,6 +68,9 @@ export function MobileDrawer({ open, onOpenChange }: MobileDrawerProps) {
               <span className="text-xs text-muted-foreground font-normal">by O2 Inc.</span>
             </SheetTitle>
           </div>
+          <SheetDescription className="sr-only">
+            Menu de navegação principal
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col h-[calc(100vh-73px)]">

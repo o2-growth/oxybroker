@@ -70,10 +70,10 @@ export default function Signup() {
         });
         navigate("/marketplace");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro no cadastro",
-        description: error.message || "Não foi possível criar a conta",
+        description: error instanceof Error ? error.message : "Não foi possível criar a conta",
         variant: "destructive",
       });
     } finally {

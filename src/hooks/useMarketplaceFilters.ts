@@ -25,6 +25,7 @@ interface LotWithAssets extends Lot {
     location_state: string | null;
     location_city: string | null;
     base_score: number;
+    image_url: string | null;
   }[];
   total_score: number;
   asset_count: number;
@@ -168,7 +169,7 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
         const assetIds = [...new Set(lotItems?.map((li) => li.asset_id) || [])];
         const { data: assets } = await supabase
           .from("assets")
-          .select("id, asset_type, sector, location_state, location_city, base_score")
+          .select("id, asset_type, sector, location_state, location_city, base_score, metadata")
           .in("id", assetIds);
 
         // Fetch bids count
@@ -192,13 +193,17 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
           const lotAssets = assetsByLot[lot.id] || [];
           return {
             ...lot,
-            assets: lotAssets.map((a) => ({
-              asset_type: a.asset_type,
-              sector: a.sector,
-              location_state: a.location_state,
-              location_city: a.location_city,
-              base_score: a.base_score,
-            })),
+            assets: lotAssets.map((a) => {
+              const meta = a.metadata as Record<string, unknown> | null;
+              return {
+                asset_type: a.asset_type,
+                sector: a.sector,
+                location_state: a.location_state,
+                location_city: a.location_city,
+                base_score: a.base_score,
+                image_url: (meta?.image_url as string) || null,
+              };
+            }),
             total_score: lotAssets.reduce((sum, a) => sum + a.base_score, 0),
             asset_count: lotAssets.length,
             bid_count: bids?.filter((b) => b.lot_id === lot.id).length || 0,
@@ -229,9 +234,9 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
         if (!cancelled) {
           setLots(lotsWithAssets);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setError(err.message);
+          setError(err instanceof Error ? err.message : "Erro inesperado");
         }
       } finally {
         if (!cancelled) {

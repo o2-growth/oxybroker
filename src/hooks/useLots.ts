@@ -37,8 +37,8 @@ export function useLots(options: UseLotOptions = {}) {
 
       if (error) throw error;
       setLots(data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro inesperado");
     } finally {
       setLoading(false);
     }

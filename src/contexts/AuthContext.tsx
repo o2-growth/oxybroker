@@ -19,8 +19,8 @@ interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string, fullName: string) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<{ user: User | null; session: Session | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ user: User | null; session: Session | null }>;
   signOut: () => Promise<void>;
   hasRole: (roles: AppRole | AppRole[]) => boolean;
   isAdmin: () => boolean;

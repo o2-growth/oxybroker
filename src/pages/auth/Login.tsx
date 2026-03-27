@@ -50,10 +50,10 @@ export default function Login() {
       });
 
       navigate("/marketplace");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro no login",
-        description: error.message || "Credenciais inválidas",
+        description: error instanceof Error ? error.message : "Credenciais inválidas",
         variant: "destructive",
       });
     } finally {

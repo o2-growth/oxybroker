@@ -105,7 +105,7 @@ export function usePromotions() {
     },
   });
 
-  const promotionDetailsQuery = (promotionId: string) => useQuery({
+  const usePromotionDetails = (promotionId: string) => useQuery({
     queryKey: ["promotion", promotionId],
     queryFn: async () => {
       // Get promotion
@@ -373,7 +373,7 @@ export function usePromotions() {
     loading: promotionsQuery.isLoading,
     error: promotionsQuery.error,
     refetch: promotionsQuery.refetch,
-    getPromotionDetails: promotionDetailsQuery,
+    usePromotionDetails,
     createPromotion,
     updatePromotion,
     togglePromotionActive,

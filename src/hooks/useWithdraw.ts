@@ -60,10 +60,10 @@ export function useWithdraw() {
 
       setLoading(false);
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao solicitar saque",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Erro inesperado",
         variant: "destructive",
       });
       setLoading(false);

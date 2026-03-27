@@ -12,6 +12,7 @@ interface CreateUserRequest {
   full_name: string;
   role: "admin" | "master_franquia" | "franquia" | "oxy_hacker";
   franchise_category_id?: string | null;
+  can_withdraw?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: CreateUserRequest = await req.json();
-    const { email, password, full_name, role, franchise_category_id } = body;
+    const { email, password, full_name, role, franchise_category_id, can_withdraw } = body;
 
     // Validate required fields
     if (!email || !password || !full_name || !role) {
@@ -126,6 +127,7 @@ Deno.serve(async (req) => {
         franchise_category_id: franchise_category_id || null,
         full_name,
         email,
+        can_withdraw: can_withdraw ?? false,
       })
       .eq("id", userId);
 

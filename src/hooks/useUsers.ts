@@ -6,6 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 type AppRole = Database["public"]["Enums"]["app_role"];
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
 export interface UserProfile {
   id: string;
@@ -33,11 +34,16 @@ export interface CreateUserData {
   full_name: string;
   role: AppRole;
   franchise_category_id?: string | null;
+  can_withdraw?: boolean;
 }
 
 interface UseUsersOptions {
   page?: number;
   pageSize?: number;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Erro inesperado";
 }
 
 export function useUsers(options: UseUsersOptions = {}) {
@@ -102,10 +108,10 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       setUsers(formattedUsers);
       setTotalCount(count || 0);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao carregar usuários",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -116,7 +122,7 @@ export function useUsers(options: UseUsersOptions = {}) {
   const updateUser = async (userId: string, data: UpdateUserData) => {
     try {
       // Update profiles table
-      const updateData: Record<string, any> = {};
+      const updateData: ProfileUpdate = {};
       if (data.full_name !== undefined) updateData.full_name = data.full_name;
       if (data.role !== undefined) updateData.role = data.role;
       if (data.franchise_category_id !== undefined) updateData.franchise_category_id = data.franchise_category_id;
@@ -146,10 +152,10 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao atualizar usuário",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
       return false;
@@ -176,10 +182,10 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao alterar status",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
       return false;
@@ -217,10 +223,10 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao excluir usuário",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
       return false;
@@ -251,6 +257,7 @@ export function useUsers(options: UseUsersOptions = {}) {
           full_name: data.full_name,
           role: data.role,
           franchise_category_id: data.franchise_category_id,
+          can_withdraw: data.can_withdraw ?? false,
         }),
       });
 
@@ -267,10 +274,10 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao criar usuário",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
       return false;

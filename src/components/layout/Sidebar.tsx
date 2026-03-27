@@ -1,3 +1,4 @@
+import React from "react";
 import { useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -30,6 +31,7 @@ import {
   Target,
   BarChart3,
   Gift,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -55,21 +57,21 @@ const adminItems = [
   { title: "Categorias", url: "/admin/categories", icon: FolderTree },
   { title: "Ativos", url: "/admin/assets", icon: Package },
   { title: "Lotes", url: "/admin/lots", icon: Layers },
+  { title: "Devoluções", url: "/admin/returns", icon: RotateCcw },
   { title: "Promoções", url: "/admin/promotions", icon: Gift },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
 ];
 
-export function Sidebar() {
-  const { state, toggleSidebar } = useSidebar();
-  const location = useLocation();
-  const { profile, signOut, isAdmin } = useAuth();
-  const collapsed = state === "collapsed";
+interface NavItemProps {
+  item: typeof marketplaceItems[0];
+  collapsed: boolean;
+}
 
-  const isActive = (path: string) => location.pathname === path;
-
-  const NavItem = ({ item, collapsed }: { item: typeof marketplaceItems[0]; collapsed: boolean }) => {
+const NavItem = React.forwardRef<HTMLAnchorElement, NavItemProps>(
+  ({ item, collapsed }, ref) => {
     const content = (
       <NavLink
+        ref={ref}
         to={item.url}
         className={cn(
           "flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200",
@@ -95,7 +97,18 @@ export function Sidebar() {
     }
 
     return content;
-  };
+  },
+);
+
+NavItem.displayName = "NavItem";
+
+export function Sidebar() {
+  const { state, toggleSidebar } = useSidebar();
+  const location = useLocation();
+  const { profile, signOut, isAdmin } = useAuth();
+  const collapsed = state === "collapsed";
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <SidebarComponent

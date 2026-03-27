@@ -17,6 +17,7 @@ interface LotListItemProps {
       location_state: string | null;
       location_city: string | null;
       base_score: number;
+      image_url?: string | null;
     }[];
     total_score: number;
     asset_count: number;
@@ -71,6 +72,9 @@ export function LotListItem({ lot }: LotListItemProps) {
     lot.assets.filter((a) => a.sector).map((a) => a.sector)
   )].slice(0, 2);
 
+  // Get first asset image for thumbnail
+  const thumbnailUrl = lot.assets.find((a) => a.image_url)?.image_url || null;
+
   return (
     <div
       className={cn(
@@ -79,6 +83,21 @@ export function LotListItem({ lot }: LotListItemProps) {
         isLive && "ring-1 ring-primary/20"
       )}
     >
+      {/* Thumbnail */}
+      {thumbnailUrl ? (
+        <div className="shrink-0 hidden sm:block">
+          <img
+            src={thumbnailUrl}
+            alt={lot.title}
+            className="h-16 w-16 rounded-lg object-cover border border-border"
+          />
+        </div>
+      ) : (
+        <div className="shrink-0 hidden sm:flex h-16 w-16 rounded-lg bg-muted items-center justify-center border border-border">
+          <Package className="h-6 w-6 text-muted-foreground" />
+        </div>
+      )}
+
       {/* Main Info */}
       <div className="flex-1 min-w-0 space-y-2">
         <div className="flex items-start gap-2 flex-wrap">

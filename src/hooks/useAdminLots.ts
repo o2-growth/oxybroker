@@ -318,18 +318,100 @@ export function useAdminLots(filters: LotFilters = {}) {
 
         if (updateAssetsError) throw updateAssetsError;
       }
+
+      // Refund all active bids: each user gets their max bid refunded
+      const { data: bids } = await supabase
+        .from("bids")
+        .select("user_id, amount")
+        .eq("lot_id", id)
+        .order("amount", { ascending: false });
+
+      let refundedCount = 0;
+
+      if (bids && bids.length > 0) {
+        // Get unique users with their max bid (the held amount)
+        const userMaxBids = new Map<string, number>();
+        for (const bid of bids) {
+          if (!userMaxBids.has(bid.user_id)) {
+            userMaxBids.set(bid.user_id, bid.amount);
+          }
+        }
+
+        // Refund each user's max bid via credit_wallet RPC (atomic, server-side)
+        for (const [userId, maxBid] of userMaxBids) {
+          const { error: refundError } = await supabase.rpc("credit_wallet", {
+            p_user_id: userId,
+            p_amount: maxBid,
+            p_description: `Reembolso - Leilão cancelado: ${lot.title}`,
+            p_reference_id: id,
+            p_reference_type: "lot_cancellation",
+          });
+
+          if (refundError) {
+            console.error(`Failed to refund user ${userId}:`, refundError);
+            continue;
+          }
+
+          refundedCount++;
+
+          // Notify user about the refund
+          await supabase.from("notifications").insert({
+            user_id: userId,
+            type: "auction_ended",
+            title: `Leilão cancelado: ${lot.title}`,
+            channel: "in_app",
+            payload: {
+              lot_id: id,
+              lot_title: lot.title,
+              refunded_amount: maxBid,
+              cancelled: true,
+            },
+          });
+        }
+      }
+
+      return { refundedCount };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast({
         title: "Lote cancelado",
-        description: "O lote foi cancelado e os ativos foram liberados.",
+        description:
+          data.refundedCount > 0
+            ? `O lote foi cancelado, ativos liberados e ${data.refundedCount} lance(s) reembolsado(s).`
+            : "O lote foi cancelado e os ativos foram liberados.",
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Erro ao cancelar lote",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const closeExpiredMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("close-auctions");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { closed: number; failed: number; message: string };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-lots"] });
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      toast({
+        title: "Leilões encerrados",
+        description: data.closed > 0
+          ? `${data.closed} leilão(ões) encerrado(s) com sucesso.`
+          : "Nenhum leilão expirado encontrado.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao encerrar leilões",
         description: error.message,
         variant: "destructive",
       });
@@ -397,10 +479,12 @@ export function useAdminLots(filters: LotFilters = {}) {
     publishLot: publishMutation.mutateAsync,
     cancelLot: cancelMutation.mutateAsync,
     deleteLot: deleteMutation.mutateAsync,
+    closeExpiredLots: closeExpiredMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isPublishing: publishMutation.isPending,
     isCancelling: cancelMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isClosingExpired: closeExpiredMutation.isPending,
   };
 }

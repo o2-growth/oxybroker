@@ -66,10 +66,10 @@ export default function AdminSettings() {
         title: "Configurações salvas",
         description: "As alterações foram aplicadas com sucesso.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Erro inesperado",
         variant: "destructive",
       });
     } finally {

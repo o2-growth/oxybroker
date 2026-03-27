@@ -70,10 +70,10 @@ export function useBuyNow() {
           return_deadline: result.return_deadline!,
         },
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       return {
         success: false,
-        error: err.message || "Erro ao processar compra",
+        error: err instanceof Error ? err.message : "Erro inesperado",
       };
     } finally {
       setLoading(false);

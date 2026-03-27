@@ -44,13 +44,14 @@ export function useRequestReturn() {
       });
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro inesperado";
       toast({
         title: "Erro ao solicitar devolução",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
-      return { success: false, error: error.message };
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }

@@ -51,8 +51,8 @@ export function useWallet() {
         .maybeSingle();
 
       setCanWithdraw(profileData?.can_withdraw ?? false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro inesperado");
     } finally {
       setLoading(false);
     }
