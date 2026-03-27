@@ -63,7 +63,7 @@ export function useAdminReturns(filters: ReturnFilters = {}) {
 
       const { data, error, count } = await query;
       if (error) throw error;
-      return { returns: data as ReturnWithDetails[], totalCount: count || 0 };
+      return { returns: (data as unknown) as ReturnWithDetails[], totalCount: count || 0 };
     },
   });
 

@@ -35,7 +35,7 @@ function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unk
 }
 
 export async function logAnalyticsEvent(
-  supabaseAdmin: SupabaseClient,
+  supabaseAdmin: any,
   event: AnalyticsEvent
 ): Promise<void> {
   try {
