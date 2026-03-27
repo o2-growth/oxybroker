@@ -1,42 +1,33 @@
 
 
-## Root Cause
+## Plan: Fix Build Errors and Lot Publishing
 
-`useAuth()` is a plain hook, not a shared context. Every component that calls it (Sidebar, TopBar, each page) creates **its own independent state** and fetches the profile separately. When you navigate between pages:
+There are 3 distinct issues to fix:
 
-1. Components remount, creating new `useAuth()` instances
-2. Each instance starts with `profile = null` and `loading = true`
-3. During the brief fetch window, `isAdmin()` returns `false` → admin section disappears
-4. Profile arrives → admin section reappears → **flicker**
+### Issue 1 — Lot publishing fails: "A data de término deve ser no futuro"
 
-Additionally, in `onAuthStateChange` (line 48), `setLoading(false)` fires **before** the `setTimeout` profile fetch (line 33) resolves, so there's a window where `loading = false` but `profile` is still `null`.
+The `publishMutation` in `useAdminLots.ts` (line ~190) validates `new Date(lot.ends_at) <= new Date()`. When creating/editing a lot, the `datetime-local` input value is converted via `new Date(formData.ends_at).toISOString()`. The problem is likely that the date was saved correctly but at publish time the deadline has already passed, OR there's a timezone interpretation issue.
 
-## Fix
+**Fix**: In `useAdminLots.ts`, improve the validation error message to show the actual `ends_at` value for debugging. More importantly, in `AdminLots.tsx`, default `ends_at` to a future date (e.g., +7 days) and add a client-side validation before saving to warn if the date is in the past.
 
-Convert `useAuth` from a standalone hook into a **shared React Context** so auth state is fetched once and shared across all components.
+### Issue 2 — `useAdminReturns.ts` type error: no relation between `returns` and `profiles`
 
-### Step 1: Create AuthContext provider
+The query uses `profiles!requested_by(full_name, email)` but there is no foreign key from `returns.requested_by` to `profiles.id` in the database schema.
 
-- Create `src/contexts/AuthContext.tsx`
-- Move all state (`user`, `session`, `profile`, `loading`) and logic from `useAuth.ts` into a context provider
-- Fix the race condition: only set `loading = false` **after** profile is fetched
-- Export `AuthProvider` and `useAuth` hook that reads from context
+**Fix**: Replace the joined query with a two-step approach: fetch returns with purchases, then separately fetch the profile data. Or, change the query to use an RPC or manual join. Simplest fix: cast through `unknown` as the data does come back (PostgREST can resolve it by column name hint), or add the foreign key.
 
-### Step 2: Update useAuth.ts
+Best approach: Add a foreign key via migration from `returns.requested_by` to `profiles.id`, which makes the query valid. Alternatively, fetch profiles separately.
 
-- Replace the full implementation with a re-export from `AuthContext` for backward compatibility
+### Issue 3 — Edge function type mismatch in `_shared/analytics.ts`
 
-### Step 3: Wrap App with AuthProvider
+The `SupabaseClient` type from `@supabase/supabase-js@2` (latest, ~2.57) doesn't match the one imported in `stripe-webhook` which uses `@2.100.1`. The floating version `@2` resolves to a different minor version.
 
-- In `App.tsx`, wrap routes with `<AuthProvider>` inside `<BrowserRouter>` (needs router for `useNavigate`)
+**Fix**: Pin the import in `_shared/analytics.ts` to use `any` type for the client parameter instead of the imported `SupabaseClient` type, or change the parameter type to a generic. Simplest: `supabaseAdmin: any`.
 
-### Step 4: Fix TopBar dependency
+### Changes
 
-- In `TopBar.tsx` line 93, change `[user]` to `[user?.id]` to prevent unnecessary refetches (same pattern we fixed elsewhere)
-
-### Result
-
-- Auth state fetched once, shared everywhere
-- No more flicker on navigation — `profile` and `isAdmin()` are stable
-- Admin section stays visible consistently
+1. **`supabase/functions/_shared/analytics.ts`** — Change `logAnalyticsEvent` parameter from `SupabaseClient` to `any` to avoid cross-version type conflicts
+2. **`src/hooks/useAdminReturns.ts`** — Fix the query to not use the `profiles!requested_by` hint (no FK exists), fetch profile separately or cast through `unknown`
+3. **`src/hooks/useAdminLots.ts`** — Keep the publish validation but make it more resilient (the core logic is correct, the user likely set a past date)
+4. **`src/pages/admin/AdminLots.tsx`** — Add client-side validation on the form to prevent saving a lot with a past `ends_at` date
 
