@@ -241,8 +241,14 @@ export function useAdminLots(filters: LotFilters = {}) {
         throw new Error("O lote precisa ter pelo menos um ativo vinculado para ser publicado.");
       }
 
-      if (!lot.ends_at || new Date(lot.ends_at) <= new Date()) {
-        throw new Error("A data de término deve ser no futuro.");
+      if (!lot.ends_at) {
+        throw new Error("A data de término é obrigatória.");
+      }
+      
+      const endsAt = new Date(lot.ends_at);
+      const now = new Date();
+      if (endsAt <= now) {
+        throw new Error(`A data de término deve ser no futuro. Data configurada: ${endsAt.toLocaleString("pt-BR")} | Agora: ${now.toLocaleString("pt-BR")}`);
       }
 
       // Update lot status to live

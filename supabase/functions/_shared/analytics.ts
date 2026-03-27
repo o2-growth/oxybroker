@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+// deno-lint-ignore-file no-explicit-any
 
 export interface AnalyticsEvent {
   event_type: "page_view" | "ui_action" | "api_call" | "domain_event";
@@ -35,7 +35,7 @@ function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unk
 }
 
 export async function logAnalyticsEvent(
-  supabaseAdmin: SupabaseClient,
+  supabaseAdmin: any,
   event: AnalyticsEvent
 ): Promise<void> {
   try {

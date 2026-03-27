@@ -76,13 +76,19 @@ const statusConfig: Record<LotStatus, { label: string; className: string }> = {
   cancelled: { label: "Cancelado", className: "oxy-badge-warning" },
 };
 
+const getDefaultEndsAt = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 16);
+};
+
 const emptyFormData = {
   title: "",
   description: "",
   starting_price: "0",
   min_bid_increment: "100",
   starts_at: "",
-  ends_at: "",
+  ends_at: getDefaultEndsAt(),
 };
 
 const PAGE_SIZE = 10;
