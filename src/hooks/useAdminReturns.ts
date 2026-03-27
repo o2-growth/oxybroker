@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
+import { useAnalytics } from "./useAnalytics";
 
 type Return = Database["public"]["Tables"]["returns"]["Row"];
 type ReturnStatus = Database["public"]["Enums"]["return_status"];
@@ -34,6 +35,7 @@ export function useAdminReturns(filters: ReturnFilters = {}) {
   const { status, page = 1, pageSize = 10 } = filters;
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { trackApiCall } = useAnalytics();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-returns", status, page, pageSize],
@@ -77,6 +79,7 @@ export function useAdminReturns(filters: ReturnFilters = {}) {
       return_id: string;
       action: "approve" | "reject";
     }) => {
+      const startedAt = Date.now();
       const { data, error } = await supabase.functions.invoke(
         "process-return",
         {
@@ -84,8 +87,24 @@ export function useAdminReturns(filters: ReturnFilters = {}) {
         }
       );
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        trackApiCall("process-return", "error", Date.now() - startedAt, {
+          action,
+          error: error.message,
+        }, "return", return_id);
+        throw error;
+      }
+      if (data?.error) {
+        trackApiCall("process-return", "error", Date.now() - startedAt, {
+          action,
+          error: data.error,
+        }, "return", return_id);
+        throw new Error(data.error);
+      }
+
+      trackApiCall("process-return", "success", Date.now() - startedAt, {
+        action,
+      }, "return", return_id);
       return data;
     },
     onSuccess: (_data, variables) => {

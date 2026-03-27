@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import type { Database } from "@/integrations/supabase/types";
@@ -12,12 +12,13 @@ interface TransferWithProfiles extends Transfer {
 
 export function useTransfers() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [transfers, setTransfers] = useState<TransferWithProfiles[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTransfers = async () => {
-    if (!user) {
+  const fetchTransfers = useCallback(async () => {
+    if (!userId) {
       setLoading(false);
       return;
     }
@@ -30,7 +31,7 @@ export function useTransfers() {
       const { data: transferData, error: transferError } = await supabase
         .from("transfers")
         .select("*")
-        .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`)
+        .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -64,11 +65,11 @@ export function useTransfers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchTransfers();
-  }, [user?.id]);
+  }, [fetchTransfers]);
 
   return { transfers, loading, error, refetch: fetchTransfers };
 }

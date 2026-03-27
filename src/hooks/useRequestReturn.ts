@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAnalytics } from "./useAnalytics";
 
 interface RequestReturnResult {
   success: boolean;
@@ -11,16 +12,21 @@ interface RequestReturnResult {
 export function useRequestReturn() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { trackApiCall } = useAnalytics();
 
   const requestReturn = async (
     purchaseId: string,
     reason?: string
   ): Promise<RequestReturnResult> => {
+    const startedAt = Date.now();
     setLoading(true);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
+        trackApiCall("request-return", "error", Date.now() - startedAt, {
+          reason: "not_authenticated",
+        }, "purchase", purchaseId);
         throw new Error("Usuário não autenticado");
       }
 
@@ -38,6 +44,8 @@ export function useRequestReturn() {
         throw new Error(result.error || "Erro ao solicitar devolução");
       }
 
+      trackApiCall("request-return", "success", Date.now() - startedAt, undefined, "purchase", purchaseId);
+
       toast({
         title: "Devolução solicitada",
         description: "Sua solicitação será analisada em breve.",
@@ -46,6 +54,9 @@ export function useRequestReturn() {
       return result;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Erro inesperado";
+      trackApiCall("request-return", "error", Date.now() - startedAt, {
+        error: message,
+      }, "purchase", purchaseId);
       toast({
         title: "Erro ao solicitar devolução",
         description: message,

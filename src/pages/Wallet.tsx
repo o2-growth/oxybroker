@@ -64,7 +64,7 @@ export default function WalletPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const { trackAction, trackDomainEvent } = useAnalytics();
+  const { trackAction } = useAnalytics();
 
   const handleTopUpOpen = (open: boolean) => {
     setTopUpOpen(open);
@@ -81,7 +81,7 @@ export default function WalletPage() {
     if (!authLoading && !user) {
       navigate("/auth/login");
     }
-  }, [user?.id, authLoading, navigate]);
+  }, [authLoading, navigate, user]);
 
   // Handle Stripe return query params
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function WalletPage() {
         title: "Pagamento processado!",
         description: "Seu saldo será atualizado em instantes.",
       });
-      trackDomainEvent("topup_confirmed", "success");
+      trackAction("topup_return_success");
       setSearchParams({});
       // Refetch wallet data after a short delay
       setTimeout(() => refetch(), 2000);
@@ -101,10 +101,10 @@ export default function WalletPage() {
         title: "Recarga cancelada",
         description: "A operação foi cancelada.",
       });
-      trackDomainEvent("topup_cancelled", "cancelled");
+      trackAction("topup_return_cancelled");
       setSearchParams({});
     }
-  }, [searchParams, setSearchParams, refetch, trackDomainEvent]);
+  }, [refetch, searchParams, setSearchParams, trackAction]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

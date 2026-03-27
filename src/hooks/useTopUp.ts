@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useAnalytics } from "./useAnalytics";
+import { getAmountBucket } from "@/lib/analytics";
 
 interface UseTopUpReturn {
   createCheckout: (amount: number) => Promise<void>;
@@ -9,6 +11,7 @@ interface UseTopUpReturn {
 
 export function useTopUp(): UseTopUpReturn {
   const [loading, setLoading] = useState(false);
+  const { trackApiCall } = useAnalytics();
 
   const createCheckout = async (amount: number) => {
     if (amount < 10 || amount > 10000) {
@@ -21,6 +24,7 @@ export function useTopUp(): UseTopUpReturn {
     }
 
     setLoading(true);
+    const startedAt = Date.now();
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { amount },
@@ -34,6 +38,10 @@ export function useTopUp(): UseTopUpReturn {
         throw new Error("URL de checkout não retornada");
       }
 
+      trackApiCall("create-checkout", "success", Date.now() - startedAt, {
+        amount_bucket: getAmountBucket(amount),
+      });
+
       // Abre em nova aba para funcionar no iframe de preview
       const checkoutWindow = window.open(data.url, "_blank");
 
@@ -46,6 +54,10 @@ export function useTopUp(): UseTopUpReturn {
       setLoading(false);
     } catch (error: unknown) {
       console.error("Error creating checkout:", error);
+      trackApiCall("create-checkout", "error", Date.now() - startedAt, {
+        amount_bucket: getAmountBucket(amount),
+        error: error instanceof Error ? error.message : "unexpected_error",
+      });
       toast({
         variant: "destructive",
         title: "Erro ao iniciar recarga",

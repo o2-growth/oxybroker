@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAmountBucket, logAnalyticsEvent } from "../_shared/analytics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,7 @@ interface CloseResult {
   success: boolean;
   has_winner: boolean;
   winner_user_id?: string;
+  purchase_id?: string;
   amount?: number;
   error?: string;
 }
@@ -163,6 +165,7 @@ serve(async (req) => {
           success: true,
           has_winner: closeResult.has_winner,
           winner_user_id: closeResult.winner_user_id,
+          purchase_id: closeResult.purchase_id,
           amount: closeResult.amount,
         });
 
@@ -171,6 +174,33 @@ serve(async (req) => {
         // =============================================
 
         if (closeResult.has_winner) {
+          await logAnalyticsEvent(supabaseAdmin, {
+            event_type: "domain_event",
+            event_name: "auction_won",
+            user_id: closeResult.winner_user_id,
+            entity_type: "lot",
+            entity_id: lot.id,
+            status: "success",
+            metadata: {
+              amount_bucket: getAmountBucket(closeResult.amount ?? 0),
+              purchase_method: "auction",
+            },
+          });
+
+          await logAnalyticsEvent(supabaseAdmin, {
+            event_type: "domain_event",
+            event_name: "purchase_created",
+            user_id: closeResult.winner_user_id,
+            entity_type: "purchase",
+            entity_id: closeResult.purchase_id ?? lot.id,
+            status: "success",
+            metadata: {
+              amount_bucket: getAmountBucket(closeResult.amount ?? 0),
+              purchase_method: "auction",
+              lot_id: lot.id,
+            },
+          });
+
           const { data: otherBidders } = await supabaseAdmin
             .from("bids")
             .select("user_id")

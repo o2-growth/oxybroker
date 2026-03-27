@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 interface CountdownProps {
@@ -16,9 +16,7 @@ interface TimeLeft {
 }
 
 export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownProps) {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft());
-
-  function calculateTimeLeft(): TimeLeft {
+  const calculateTimeLeft = useCallback((): TimeLeft => {
     const end = new Date(endTime).getTime();
     const now = Date.now();
     const total = Math.max(0, end - now);
@@ -30,7 +28,9 @@ export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownPr
       seconds: Math.floor((total % (1000 * 60)) / 1000),
       total,
     };
-  }
+  }, [endTime]);
+
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft());
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -44,12 +44,12 @@ export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownPr
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [endTime, onComplete]);
+  }, [calculateTimeLeft, onComplete]);
 
   // Recalculate immediately when endTime changes (for extension animation)
   useEffect(() => {
     setTimeLeft(calculateTimeLeft());
-  }, [endTime]);
+  }, [calculateTimeLeft]);
 
   const isUrgent = timeLeft.total < 3600000; // Less than 1 hour
   const isCritical = timeLeft.total < 300000; // Less than 5 minutes

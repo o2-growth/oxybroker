@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
+import { useAnalytics } from "./useAnalytics";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -52,6 +53,7 @@ export function useUsers(options: UseUsersOptions = {}) {
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const { toast } = useToast();
+  const { trackApiCall } = useAnalytics();
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -234,9 +236,13 @@ export function useUsers(options: UseUsersOptions = {}) {
   };
 
   const createUser = async (data: CreateUserData) => {
+    const startedAt = Date.now();
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
+        trackApiCall("create-user", "error", Date.now() - startedAt, {
+          reason: "not_authenticated",
+        }, "profile");
         toast({
           title: "Erro de autenticação",
           description: "Você precisa estar logado para criar usuários.",
@@ -267,6 +273,10 @@ export function useUsers(options: UseUsersOptions = {}) {
         throw new Error(result.error || "Erro ao criar usuário");
       }
 
+      trackApiCall("create-user", "success", Date.now() - startedAt, {
+        role: data.role,
+      }, "profile");
+
       toast({
         title: "Usuário criado",
         description: `O usuário ${data.full_name} foi criado com sucesso.`,
@@ -275,6 +285,9 @@ export function useUsers(options: UseUsersOptions = {}) {
       await fetchUsers();
       return true;
     } catch (error: unknown) {
+      trackApiCall("create-user", "error", Date.now() - startedAt, {
+        error: getErrorMessage(error),
+      }, "profile");
       toast({
         title: "Erro ao criar usuário",
         description: getErrorMessage(error),

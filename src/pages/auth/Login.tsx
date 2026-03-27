@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Moon, Sun } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -23,8 +23,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
+  const { signIn } = useAuth();
 
   const {
     register,
@@ -34,15 +36,22 @@ export default function Login() {
     resolver: zodResolver(loginSchema),
   });
 
+  useEffect(() => {
+    if (searchParams.get("reason") !== "suspended") return;
+
+    toast({
+      title: "Conta suspensa",
+      description: "Seu acesso foi bloqueado por um administrador.",
+      variant: "destructive",
+    });
+
+    navigate("/auth/login", { replace: true });
+  }, [navigate, searchParams, toast]);
+
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (error) throw error;
+      await signIn(data.email, data.password);
 
       toast({
         title: "Login realizado!",

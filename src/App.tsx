@@ -52,13 +52,13 @@ function RouteLoadingScreen() {
 }
 
 function ProtectedRoute() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return <RouteLoadingScreen />;
   }
 
-  if (!user) {
+  if (!user || profile?.suspended_at) {
     return <Navigate to="/auth/login" replace />;
   }
 

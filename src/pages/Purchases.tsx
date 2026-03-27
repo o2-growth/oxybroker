@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ interface PurchaseWithDetails extends Purchase {
 
 export default function Purchases() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { requestReturn, loading: returning } = useRequestReturn();
   const { trackAction, trackDomainEvent } = useAnalytics();
   const [purchases, setPurchases] = useState<PurchaseWithDetails[]>([]);
@@ -38,13 +39,13 @@ export default function Purchases() {
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseWithDetails | null>(null);
   const [returnReason, setReturnReason] = useState("");
 
-  const fetchPurchases = async () => {
-    if (!user) return;
+  const fetchPurchases = useCallback(async () => {
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from("purchases")
       .select("*, lot:lots(title)")
-      .eq("buyer_user_id", user.id)
+      .eq("buyer_user_id", userId)
       .order("purchased_at", { ascending: false });
 
     if (error) {
@@ -69,11 +70,11 @@ export default function Purchases() {
 
     setPurchases(enrichedPurchases);
     setLoading(false);
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchPurchases();
-  }, [user?.id]);
+  }, [fetchPurchases]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

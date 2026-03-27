@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -15,7 +15,7 @@ export function useLots(options: UseLotOptions = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLots = async () => {
+  const fetchLots = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -42,7 +42,7 @@ export function useLots(options: UseLotOptions = {}) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [options.search, options.status]);
 
   useEffect(() => {
     fetchLots();
@@ -66,7 +66,7 @@ export function useLots(options: UseLotOptions = {}) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [options.status, options.search]);
+  }, [fetchLots]);
 
   return { lots, loading, error, refetch: fetchLots };
 }

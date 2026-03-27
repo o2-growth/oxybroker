@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAnalytics } from "./useAnalytics";
+import { getAmountBucket } from "@/lib/analytics";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -16,12 +18,17 @@ export interface BankInfo {
 export function useWithdraw() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { trackApiCall } = useAnalytics();
 
   const requestWithdrawal = async (amount: number, bankInfo: BankInfo) => {
+    const startedAt = Date.now();
     setLoading(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
+        trackApiCall("request-withdrawal", "error", Date.now() - startedAt, {
+          reason: "not_authenticated",
+        });
         toast({
           title: "Erro de autenticação",
           description: "Você precisa estar logado para solicitar saque.",
@@ -52,6 +59,11 @@ export function useWithdraw() {
         throw new Error(result.error || "Erro ao solicitar saque");
       }
 
+      trackApiCall("request-withdrawal", "success", Date.now() - startedAt, {
+        amount_bucket: getAmountBucket(amount),
+        transfer_type: bankInfo.type,
+      });
+
       toast({
         title: "Solicitação enviada!",
         description:
@@ -61,6 +73,11 @@ export function useWithdraw() {
       setLoading(false);
       return true;
     } catch (error: unknown) {
+      trackApiCall("request-withdrawal", "error", Date.now() - startedAt, {
+        amount_bucket: getAmountBucket(amount),
+        transfer_type: bankInfo.type,
+        error: error instanceof Error ? error.message : "unexpected_error",
+      });
       toast({
         title: "Erro ao solicitar saque",
         description: error instanceof Error ? error.message : "Erro inesperado",

@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 export type AppRole = "admin" | "master_franquia" | "franquia" | "oxy_hacker";
+const SUSPENDED_REASON = "suspended";
+const SUSPENDED_MESSAGE = "Sua conta está suspensa. Entre em contato com o administrador.";
 
 interface Profile {
   id: string;
@@ -12,6 +14,7 @@ interface Profile {
   role: AppRole;
   franchise_category_id: string | null;
   avatar_url: string | null;
+  suspended_at: string | null;
 }
 
 interface AuthContextValue {
@@ -39,6 +42,10 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
   return data as Profile | null;
 }
 
+function isSuspendedProfile(profile: Profile | null): boolean {
+  return Boolean(profile?.suspended_at);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -46,61 +53,110 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const handleSuspendedUser = useCallback(async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setLoading(false);
+    navigate(`/auth/login?reason=${SUSPENDED_REASON}`, { replace: true });
+  }, [navigate]);
+
+  const syncSessionState = useCallback(async (nextSession: Session | null) => {
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    if (!nextSession?.user) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    const nextProfile = await fetchProfile(nextSession.user.id);
+
+    if (isSuspendedProfile(nextProfile)) {
+      await handleSuspendedUser();
+      return;
+    }
+
+    setProfile(nextProfile);
+    setLoading(false);
+  }, [handleSuspendedUser]);
+
   useEffect(() => {
     let mounted = true;
+
+    const runSessionSync = async (nextSession: Session | null) => {
+      if (!mounted) return;
+      await syncSessionState(nextSession);
+    };
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         if (!mounted) return;
-
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-
-        if (newSession?.user) {
-          // Use setTimeout to avoid Supabase deadlock, but only set loading=false AFTER profile resolves
-          setTimeout(async () => {
-            if (!mounted) return;
-            const p = await fetchProfile(newSession.user.id);
-            if (mounted) {
-              setProfile(p);
-              setLoading(false);
-            }
-          }, 0);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
+        setTimeout(() => {
+          void runSessionSync(newSession);
+        }, 0);
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
       if (!mounted) return;
-
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
-
-      if (existingSession?.user) {
-        const p = await fetchProfile(existingSession.user.id);
-        if (mounted) {
-          setProfile(p);
-          setLoading(false);
-        }
-      } else {
-        if (mounted) setLoading(false);
-      }
+      await runSessionSync(existingSession);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [syncSessionState]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`profile-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          const nextProfile = payload.new as Profile;
+
+          if (isSuspendedProfile(nextProfile)) {
+            void handleSuspendedUser();
+            return;
+          }
+
+          setProfile(nextProfile);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [handleSuspendedUser, user?.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    if (data.user) {
+      const nextProfile = await fetchProfile(data.user.id);
+
+      if (isSuspendedProfile(nextProfile)) {
+        await supabase.auth.signOut();
+        throw new Error(SUSPENDED_MESSAGE);
+      }
+    }
+
     return data;
   }, []);
 
