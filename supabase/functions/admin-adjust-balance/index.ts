@@ -30,26 +30,18 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Validate JWT and get claims using getClaims
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-    
-    console.log("Claims result:", { 
-      hasData: !!claimsData, 
-      hasClaims: !!claimsData?.claims,
-      error: claimsError?.message 
-    });
-    
-    if (claimsError || !claimsData?.claims?.sub) {
-      console.error("Claims error:", claimsError);
+    // Validate JWT and get user
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
+    if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(
         JSON.stringify({ error: "Token inválido" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const adminId = claimsData.claims.sub as string;
-    console.log("Authenticated user:", adminId);
+    const adminId = user.id;
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);

@@ -75,11 +75,10 @@ Deno.serve(async (req) => {
         { global: { headers: { Authorization: authHeader } } }
       );
 
-      const token = authHeader.replace("Bearer ", "");
-      const { data: claims } = await supabaseUser.auth.getClaims(token);
-      
-      if (claims?.claims?.sub) {
-        userId = claims.claims.sub;
+      const { data: { user } } = await supabaseUser.auth.getUser();
+
+      if (user?.id) {
+        userId = user.id;
         
         // Get user role
         const { data: roleData } = await supabaseAdmin.rpc("get_user_role", {
