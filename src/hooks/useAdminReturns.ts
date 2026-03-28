@@ -48,8 +48,7 @@ export function useAdminReturns(filters: ReturnFilters = {}) {
         .select(
           `
           *,
-          purchases(id, amount, buyer_user_id, lot_id, lots(title)),
-          profiles!requested_by(full_name, email)
+          purchases(id, amount, buyer_user_id, lot_id, lots(title))
         `,
           { count: "exact" }
         )
@@ -61,9 +60,32 @@ export function useAdminReturns(filters: ReturnFilters = {}) {
 
       query = query.range(from, to);
 
-      const { data, error, count } = await query;
-      if (error) throw error;
-      return { returns: (data as unknown) as ReturnWithDetails[], totalCount: count || 0 };
+      const { data: returnsData, error: returnsError, count } = await query;
+      if (returnsError) throw returnsError;
+
+      // Fetch profiles separately since there's no FK from returns.requested_by to profiles
+      const userIds = [...new Set((returnsData || []).map((r) => r.requested_by))];
+      let profilesMap: Record<string, Profile> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", userIds);
+
+        if (profiles) {
+          profilesMap = Object.fromEntries(
+            profiles.map((p) => [p.id, { full_name: p.full_name, email: p.email }])
+          );
+        }
+      }
+
+      const returns = (returnsData || []).map((r) => ({
+        ...r,
+        profiles: profilesMap[r.requested_by] || null,
+      })) as ReturnWithDetails[];
+
+      return { returns, totalCount: count || 0 };
     },
   });
 
