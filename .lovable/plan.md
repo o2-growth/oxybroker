@@ -1,23 +1,24 @@
 
 
-## Plan: Fix forwardRef Warnings on LotDetail Page
+## Plan: Reset Marco's Password via Admin Edge Function
 
-Five components need `React.forwardRef` wrapping to eliminate the console warnings. All are plain function components receiving refs from parent renders in `LotDetail`.
+There is no existing edge function to change a user's password. We need to create one that uses the Supabase Admin API (`auth.admin.updateUserById`), then call it to set Marco's password.
 
 ### Changes
 
-1. **`src/components/ui/badge.tsx`** — Wrap `Badge` with `React.forwardRef`
-2. **`src/components/auction/AuctionStatusBadge.tsx`** — Wrap with `React.forwardRef`
-3. **`src/components/auction/CountdownTimer.tsx`** — Wrap with `React.forwardRef`
-4. **`src/components/auction/BuyNowButton.tsx`** — Wrap with `React.forwardRef`
-5. **`src/components/auction/BidPanel.tsx`** — Wrap with `React.forwardRef`
+1. **Create `supabase/functions/admin-reset-password/index.ts`** — New edge function that:
+   - Validates the caller is an admin (same pattern as `create-user`)
+   - Accepts `user_id` and `new_password` in the request body
+   - Calls `supabaseAdmin.auth.admin.updateUserById(user_id, { password })` to update the password
+   - Returns success/error response
 
-Each component will be updated to use the pattern:
-```tsx
-const Component = React.forwardRef<HTMLDivElement, Props>(({ ...props }, ref) => {
-  // existing logic
-});
-Component.displayName = "Component";
-export { Component };
-```
+2. **Update `supabase/config.toml`** — Add `verify_jwt = false` for `admin-reset-password` (manual JWT validation inside the function, consistent with other edge functions)
+
+3. **Call the function** to set Marco Aurelio's password to `Alterar@01`
+
+### Technical details
+
+- The edge function uses `SUPABASE_SERVICE_ROLE_KEY` to call `auth.admin.updateUserById`, which bypasses normal auth restrictions
+- Admin role is verified by checking `user_roles` table before proceeding
+- Marco's user ID (from previous query): `efaborbe-...` — will be confirmed at execution time
 
