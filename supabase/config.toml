@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.admin-adjust-balance]
 verify_jwt = false
+
+[functions.admin-reset-password]
+verify_jwt = false
