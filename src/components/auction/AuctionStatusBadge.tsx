@@ -1,3 +1,4 @@
+import React from "react";
 import { Trophy, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AuctionStatus } from "@/hooks/useAuctionStatus";
