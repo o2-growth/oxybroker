@@ -13,7 +13,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-transfer]
-verify_jwt = true
+verify_jwt = false
 
 [functions.request-return]
 verify_jwt = true
