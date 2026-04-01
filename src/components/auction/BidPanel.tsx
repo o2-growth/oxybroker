@@ -360,4 +360,5 @@ export const BidPanel = React.forwardRef<HTMLDivElement, BidPanelProps>(({ lot, 
       </p>
     </div>
   );
-}
+});
+BidPanel.displayName = "BidPanel";

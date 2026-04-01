@@ -150,4 +150,5 @@ export const BuyNowButton = React.forwardRef<HTMLDivElement, BuyNowButtonProps>(
       </AlertDialogContent>
     </AlertDialog>
   );
-}
+});
+BuyNowButton.displayName = "BuyNowButton";

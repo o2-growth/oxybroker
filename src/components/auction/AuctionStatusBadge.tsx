@@ -66,4 +66,5 @@ export const AuctionStatusBadge = React.forwardRef<HTMLDivElement, AuctionStatus
       </div>
     </div>
   );
-}
+});
+AuctionStatusBadge.displayName = "AuctionStatusBadge";

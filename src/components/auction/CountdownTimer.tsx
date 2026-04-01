@@ -91,4 +91,5 @@ export const CountdownTimer = React.forwardRef<HTMLDivElement, CountdownProps>((
       )}
     </div>
   );
-}
+});
+CountdownTimer.displayName = "CountdownTimer";
