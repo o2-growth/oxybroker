@@ -22,7 +22,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.create-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-checkout]
 verify_jwt = false
