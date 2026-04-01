@@ -15,7 +15,7 @@ interface TimeLeft {
   total: number;
 }
 
-export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownProps) {
+export const CountdownTimer = React.forwardRef<HTMLDivElement, CountdownProps>(({ endTime, onComplete, wasExtended }, ref) => {
   const calculateTimeLeft = useCallback((): TimeLeft => {
     const end = new Date(endTime).getTime();
     const now = Date.now();

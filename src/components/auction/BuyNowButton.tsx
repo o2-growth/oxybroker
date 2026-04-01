@@ -35,7 +35,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function BuyNowButton({
+export const BuyNowButton = React.forwardRef<HTMLDivElement, BuyNowButtonProps>(({
   lotId,
   lotTitle,
   currentPrice,
@@ -44,7 +44,7 @@ export function BuyNowButton({
   disabled,
   className,
   onPurchased,
-}: BuyNowButtonProps) {
+}, ref) => {
   const { buyNow, loading } = useBuyNow();
   const { toast } = useToast();
   const navigate = useNavigate();

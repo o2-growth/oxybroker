@@ -39,7 +39,7 @@ const parseCurrencyInput = (value: string): number => {
   return parseFloat(cleaned) || 0;
 };
 
-export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProps) {
+export const BidPanel = React.forwardRef<HTMLDivElement, BidPanelProps>(({ lot, userHasBids = false, onBidPlaced }, ref) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { placeBid, loading } = usePlaceBid();

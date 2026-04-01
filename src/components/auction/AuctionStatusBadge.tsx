@@ -15,11 +15,11 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function AuctionStatusBadge({
+export const AuctionStatusBadge = React.forwardRef<HTMLDivElement, AuctionStatusBadgeProps>(({
   status,
   myBidAmount,
   className,
-}: AuctionStatusBadgeProps) {
+}, ref) => {
   const config = {
     winning: {
       icon: Trophy,
