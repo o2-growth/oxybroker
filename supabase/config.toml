@@ -1,7 +1,7 @@
 project_id = "hwgqntftsjnqjchyzjzk"
 
 [functions.place-bid]
-verify_jwt = true
+verify_jwt = false
 
 [functions.stripe-webhook]
 verify_jwt = false
@@ -13,13 +13,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-transfer]
-verify_jwt = true
+verify_jwt = false
 
 [functions.request-return]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-return]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-user]
 verify_jwt = false
@@ -28,7 +28,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.request-withdrawal]
-verify_jwt = true
+verify_jwt = false
 
 [functions.admin-adjust-balance]
 verify_jwt = false
