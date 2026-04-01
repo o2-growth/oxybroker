@@ -1,24 +1,13 @@
 
 
-## Plan: Reset Marco's Password via Admin Edge Function
+## Plan: Adicionar R$ 80.000 ao saldo do Marco Aurelio
 
-There is no existing edge function to change a user's password. We need to create one that uses the Supabase Admin API (`auth.admin.updateUserById`), then call it to set Marco's password.
+Marco Aurelio (`c86a2580-f58c-4c66-b6ef-137b4807646f`) tem saldo atual de **R$ 0,00**.
 
-### Changes
+### Ação
 
-1. **Create `supabase/functions/admin-reset-password/index.ts`** — New edge function that:
-   - Validates the caller is an admin (same pattern as `create-user`)
-   - Accepts `user_id` and `new_password` in the request body
-   - Calls `supabaseAdmin.auth.admin.updateUserById(user_id, { password })` to update the password
-   - Returns success/error response
+1. **Atualizar saldo da carteira** — Definir balance para 80000.00 na tabela `wallets`
+2. **Registrar transação** — Inserir registro na tabela `wallet_transactions` com tipo `admin_adjust`, valor 80000, e descrição "Crédito manual de R$ 80.000"
 
-2. **Update `supabase/config.toml`** — Add `verify_jwt = false` for `admin-reset-password` (manual JWT validation inside the function, consistent with other edge functions)
-
-3. **Call the function** to set Marco Aurelio's password to `Alterar@01`
-
-### Technical details
-
-- The edge function uses `SUPABASE_SERVICE_ROLE_KEY` to call `auth.admin.updateUserById`, which bypasses normal auth restrictions
-- Admin role is verified by checking `user_roles` table before proceeding
-- Marco's user ID (from previous query): `efaborbe-...` — will be confirmed at execution time
+Ambas operações serão feitas via SQL direto no banco de dados usando o service role.
 
