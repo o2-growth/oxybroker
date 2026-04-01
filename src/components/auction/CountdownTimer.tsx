@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 interface CountdownProps {
@@ -15,7 +15,7 @@ interface TimeLeft {
   total: number;
 }
 
-export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownProps) {
+export const CountdownTimer = React.forwardRef<HTMLDivElement, CountdownProps>(({ endTime, onComplete, wasExtended }, ref) => {
   const calculateTimeLeft = useCallback((): TimeLeft => {
     const end = new Date(endTime).getTime();
     const now = Date.now();
@@ -91,4 +91,5 @@ export function CountdownTimer({ endTime, onComplete, wasExtended }: CountdownPr
       )}
     </div>
   );
-}
+});
+CountdownTimer.displayName = "CountdownTimer";
