@@ -5,14 +5,12 @@ import { queryKeys } from "@/lib/query-keys";
 import type { Database } from "@/integrations/supabase/types";
 
 type Purchase = Database["public"]["Tables"]["purchases"]["Row"];
-type Return = Database["public"]["Tables"]["returns"]["Row"];
 
 export interface PurchaseWithDetails extends Purchase {
   lot: { title: string } | null;
-  return_request?: Return | null;
 }
 
-async function fetchPurchasesWithReturns(userId: string): Promise<PurchaseWithDetails[]> {
+async function fetchPurchases(userId: string): Promise<PurchaseWithDetails[]> {
   const { data, error } = await supabase
     .from("purchases")
     .select("*, lot:lots(title)")
@@ -20,26 +18,7 @@ async function fetchPurchasesWithReturns(userId: string): Promise<PurchaseWithDe
     .order("purchased_at", { ascending: false });
 
   if (error) throw error;
-
-  const purchaseIds = (data || []).map((p) => p.id);
-
-  if (purchaseIds.length === 0) {
-    return [];
-  }
-
-  const { data: returns, error: returnsError } = await supabase
-    .from("returns")
-    .select("*")
-    .in("purchase_id", purchaseIds);
-
-  if (returnsError) throw returnsError;
-
-  const returnMap = new Map((returns || []).map((r) => [r.purchase_id, r]));
-
-  return (data || []).map((p) => ({
-    ...p,
-    return_request: returnMap.get(p.id) || null,
-  }));
+  return data ?? [];
 }
 
 export function usePurchases() {
@@ -47,7 +26,7 @@ export function usePurchases() {
 
   return useQuery({
     queryKey: queryKeys.purchases.byUser(user?.id ?? "__none__"),
-    queryFn: () => fetchPurchasesWithReturns(user!.id),
+    queryFn: () => fetchPurchases(user!.id),
     enabled: !!user?.id,
   });
 }

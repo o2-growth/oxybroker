@@ -43,11 +43,18 @@ export function useMyAuctions() {
 
       const lotIds = Array.from(lotBidsMap.keys());
 
-      // 3. Fetch lot details
+      // 3. Fetch lot details — Sprint 4 S4-023: filtra leilões encerrados em meses anteriores
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
       const { data: lots, error: lotsError } = await supabase
         .from("lots")
         .select("*")
-        .in("id", lotIds);
+        .in("id", lotIds)
+        .or(
+          `status.eq.live,ends_at.gte.${startOfMonth.toISOString()}`,
+        );
 
       if (lotsError) throw lotsError;
       if (!lots) return [];

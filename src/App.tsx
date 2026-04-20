@@ -30,6 +30,7 @@ import AdminAssets from "./pages/admin/AdminAssets";
 import AdminLots from "./pages/admin/AdminLots";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminPromotions from "./pages/admin/AdminPromotions";
+import AdminLeadsInbox from "./pages/admin/AdminLeadsInbox";
 
 import NotFound from "./pages/NotFound";
 
@@ -172,6 +173,14 @@ const App = () => (
                   element={
                     <AdminRoute>
                       <AdminPromotions />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/leads-inbox"
+                  element={
+                    <AdminRoute>
+                      <AdminLeadsInbox />
                     </AdminRoute>
                   }
                 />

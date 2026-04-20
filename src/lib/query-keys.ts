@@ -58,4 +58,9 @@ export const queryKeys = {
     all: ["promotions"] as const,
     active: ["promotions", "active"] as const,
   },
+  leadsInbox: {
+    all: ["leads_inbox"] as const,
+    byStatus: (status: string) => ["leads_inbox", "status", status] as const,
+    detail: (id: string) => ["leads_inbox", "detail", id] as const,
+  },
 } as const;

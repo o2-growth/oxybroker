@@ -100,7 +100,7 @@ serve(async (req) => {
 
     const { data: lotsToClose, error: lotsError } = await supabaseAdmin
       .from("lots")
-      .select("id, title")
+      .select("id, title, auction_type, lead_inbox_id")
       .eq("status", "live")
       .lte("ends_at", new Date().toISOString());
 
@@ -165,6 +165,18 @@ serve(async (req) => {
           winner_user_id: closeResult.winner_user_id,
           amount: closeResult.amount,
         });
+
+        // Sprint 4 — single_lead: sincroniza status do lead no inbox
+        if (lot.auction_type === "single_lead" && lot.lead_inbox_id) {
+          if (closeResult.has_winner && closeResult.purchase_id) {
+            await supabaseAdmin.rpc("mark_lead_sold_auction", {
+              p_lot_id: lot.id,
+              p_purchase_id: closeResult.purchase_id,
+            });
+          } else {
+            await supabaseAdmin.rpc("expire_unsold_lead", { p_lot_id: lot.id });
+          }
+        }
 
         // =============================================
         // NOTIFY OTHER PARTICIPANTS (LOSERS)

@@ -21,6 +21,7 @@ import {
   Users,
   Gift,
   BarChart3,
+  Inbox,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const adminItems = [
   { title: "Usuários", url: "/admin/users", icon: Users },
   { title: "Categorias", url: "/admin/categories", icon: FolderTree },
   { title: "Ativos", url: "/admin/assets", icon: Package },
+  { title: "Inbox de Leads", url: "/admin/leads-inbox", icon: Inbox },
   { title: "Lotes", url: "/admin/lots", icon: Layers },
   { title: "Promoções", url: "/admin/promotions", icon: Gift },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
