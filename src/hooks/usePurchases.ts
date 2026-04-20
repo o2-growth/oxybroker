@@ -46,7 +46,7 @@ export function usePurchases() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: user?.id ? queryKeys.purchases.byUser(user.id) : queryKeys.purchases.all,
+    queryKey: queryKeys.purchases.byUser(user?.id ?? "__none__"),
     queryFn: () => fetchPurchasesWithReturns(user!.id),
     enabled: !!user?.id,
   });

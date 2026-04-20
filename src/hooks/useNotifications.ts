@@ -24,7 +24,7 @@ export function useNotifications() {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: user?.id ? queryKeys.notifications.byUser(user.id) : queryKeys.notifications.all,
+    queryKey: queryKeys.notifications.byUser(user?.id ?? "__none__"),
     queryFn: () => fetchNotifications(user!.id),
     enabled: !!user?.id,
   });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface AdjustBalanceResult {
   success: boolean;
@@ -11,7 +11,6 @@ interface AdjustBalanceResult {
 
 export function useAdminAdjustBalance() {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   const adjustBalance = async (
     userId: string,
@@ -23,11 +22,7 @@ export function useAdminAdjustBalance() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
-        toast({
-          title: "Erro",
-          description: "Você precisa estar logado para realizar esta ação.",
-          variant: "destructive",
-        });
+        toast.error("Você precisa estar logado para realizar esta ação.");
         return { success: false, error: "Não autenticado" };
       }
 
@@ -37,27 +32,18 @@ export function useAdminAdjustBalance() {
 
       if (response.error) {
         const errorMessage = response.error.message || "Erro ao ajustar saldo";
-        toast({
-          title: "Erro",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        toast.error(errorMessage);
         return { success: false, error: errorMessage };
       }
 
       const data = response.data as AdjustBalanceResult;
 
       if (!data.success) {
-        toast({
-          title: "Erro",
-          description: data.error || "Erro ao ajustar saldo",
-          variant: "destructive",
-        });
+        toast.error(data.error || "Erro ao ajustar saldo");
         return { success: false, error: data.error };
       }
 
-      toast({
-        title: "Saldo ajustado",
+      toast.success("Saldo ajustado", {
         description: data.message || `R$ ${amount.toFixed(2)} adicionado com sucesso`,
       });
 
@@ -69,11 +55,7 @@ export function useAdminAdjustBalance() {
     } catch (error) {
       console.error("Error adjusting balance:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro inesperado";
-      toast({
-        title: "Erro",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast.error(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);

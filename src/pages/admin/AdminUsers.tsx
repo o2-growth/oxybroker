@@ -172,6 +172,9 @@ export default function AdminUsers() {
     if (!editingUser) return;
 
     if (editingUser.id === user?.id && formData.role !== editingUser.role) {
+      toast.error("Ação não permitida", {
+        description: "Você não pode alterar seu próprio papel.",
+      });
       return;
     }
 

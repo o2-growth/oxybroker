@@ -17,6 +17,10 @@ import {
   Layers,
   LogOut,
   Gavel,
+  Target,
+  Users,
+  Gift,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -24,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 
 const marketplaceItems = [
   { title: "Marketplace", url: "/marketplace", icon: Gavel },
+  { title: "Meus Leilões", url: "/my-auctions", icon: Target },
   { title: "Carteira", url: "/wallet", icon: Wallet },
   { title: "Transferências", url: "/transfers", icon: ArrowLeftRight },
   { title: "Compras", url: "/purchases", icon: ShoppingBag },
@@ -32,9 +37,12 @@ const marketplaceItems = [
 
 const adminItems = [
   { title: "Configurações", url: "/admin/settings", icon: Settings },
+  { title: "Usuários", url: "/admin/users", icon: Users },
   { title: "Categorias", url: "/admin/categories", icon: FolderTree },
   { title: "Ativos", url: "/admin/assets", icon: Package },
   { title: "Lotes", url: "/admin/lots", icon: Layers },
+  { title: "Promoções", url: "/admin/promotions", icon: Gift },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
 ];
 
 interface MobileDrawerProps {

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "./use-toast";
 
 interface BuyNowResult {
   success: boolean;
@@ -16,7 +15,6 @@ interface BuyNowResult {
 
 export function useBuyNow() {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   const buyNow = async (lotId: string): Promise<BuyNowResult> => {
     setLoading(true);

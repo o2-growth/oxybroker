@@ -37,6 +37,7 @@ vi.mock("@/integrations/supabase/client", () => ({
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: mockSingle,
+    maybeSingle: mockSingle,
   },
 }));
 
@@ -109,7 +110,7 @@ function setupAuthenticatedSession(
     data: { subscription: { unsubscribe: vi.fn() } },
   });
 
-  // fetchProfile usa .from("profiles").select("*").eq("id", userId).single()
+  // fetchProfile usa .from("profiles").select("*").eq("id", userId).maybeSingle()
   mockSingle.mockResolvedValue({ data: fakeProfile, error: null });
 }
 

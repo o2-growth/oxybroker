@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { OutbidNotificationProvider } from "@/components/providers/OutbidNotificationProvider";
 import { ProtectedRoute } from "@/components/routes/ProtectedRoute";
 import { AdminRoute } from "@/components/routes/AdminRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -32,16 +33,25 @@ import AdminPromotions from "./pages/admin/AdminPromotions";
 
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
             <OutbidNotificationProvider>
+              <ErrorBoundary>
               <Routes>
                 {/* Redirect root to marketplace */}
                 <Route path="/" element={<Navigate to="/marketplace" replace />} />
@@ -169,6 +179,7 @@ const App = () => (
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </ErrorBoundary>
             </OutbidNotificationProvider>
           </AuthProvider>
         </BrowserRouter>

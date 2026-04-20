@@ -8,18 +8,19 @@ type Wallet = Database["public"]["Tables"]["wallets"]["Row"];
 type Transaction = Database["public"]["Tables"]["wallet_transactions"]["Row"];
 
 interface WalletData {
-  wallet: Wallet;
+  wallet: Wallet | null;
   transactions: Transaction[];
   canWithdraw: boolean;
 }
 
 async function fetchWalletData(userId: string): Promise<WalletData> {
+  console.log("[OXY:Wallet] fetching data for", userId);
   const [walletResult, txResult, profileResult] = await Promise.all([
     supabase
       .from("wallets")
       .select("*")
       .eq("user_id", userId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from("wallet_transactions")
       .select("*")
@@ -30,12 +31,14 @@ async function fetchWalletData(userId: string): Promise<WalletData> {
       .from("profiles")
       .select("can_withdraw")
       .eq("id", userId)
-      .single(),
+      .maybeSingle(),
   ]);
 
-  if (walletResult.error) throw walletResult.error;
-  if (txResult.error) throw txResult.error;
-  if (profileResult.error) throw profileResult.error;
+  if (walletResult.error) { console.error("[OXY:Wallet] wallet error:", walletResult.error.message); throw walletResult.error; }
+  if (txResult.error) { console.error("[OXY:Wallet] tx error:", txResult.error.message); throw txResult.error; }
+  if (profileResult.error) { console.error("[OXY:Wallet] profile error:", profileResult.error.message); throw profileResult.error; }
+
+  console.log("[OXY:Wallet] loaded — balance:", walletResult.data?.balance, "txs:", txResult.data?.length);
 
   return {
     wallet: walletResult.data,
@@ -53,9 +56,7 @@ export function useWallet() {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: user
-      ? queryKeys.wallet.balance(user.id)
-      : (["wallet", "balance", ""] as const),
+    queryKey: queryKeys.wallet.balance(user?.id ?? "__none__"),
     queryFn: () => fetchWalletData(user!.id),
     enabled: Boolean(user),
   });

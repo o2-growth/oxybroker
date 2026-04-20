@@ -43,30 +43,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (data) {
-      setProfile(data as Profile);
+      if (error) {
+        console.error("[OXY:Auth] fetchProfile error:", error.message);
+      } else if (data) {
+        console.log("[OXY:Auth] profile loaded — role:", data.role);
+        setProfile(data as Profile);
+      } else {
+        console.warn("[OXY:Auth] fetchProfile returned null data");
+      }
+    } catch (err) {
+      console.error("[OXY:Auth] fetchProfile exception:", err);
+    } finally {
+      console.log("[OXY:Auth] loading=false");
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
-    // Buscar sessao inicial antes de registrar o listener
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    console.log("[OXY:Auth] init — fetching session…");
+    // Timeout de segurança: se o auth demorar > 8s, libera o loading
+    const loadingTimeout = setTimeout(() => {
+      console.warn("[OXY:Auth] 8s timeout — forcing loading=false");
+      setLoading(false);
+    }, 8000);
 
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
+    // Buscar sessao inicial antes de registrar o listener
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(loadingTimeout);
+        console.log("[OXY:Auth] getSession →", session ? `user=${session.user.id}` : "no session");
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        clearTimeout(loadingTimeout);
+        console.error("[OXY:Auth] getSession error:", err);
         setLoading(false);
-      }
-    });
+      });
 
     // UMA unica subscription para toda a aplicacao
     const {
@@ -83,7 +109,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

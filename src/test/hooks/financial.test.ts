@@ -19,6 +19,7 @@ vi.mock("@/integrations/supabase/client", () => ({
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(),
+    maybeSingle: vi.fn(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     functions: {
@@ -97,8 +98,8 @@ describe("useWallet", () => {
     const fakeProfile = { can_withdraw: true };
 
     // Promise.all resolve na ordem: wallet, transactions, profile
-    const single = supabaseMock.single as ReturnType<typeof vi.fn>;
-    single
+    const maybeSingle = supabaseMock.maybeSingle as ReturnType<typeof vi.fn>;
+    maybeSingle
       .mockResolvedValueOnce({ data: fakeWallet, error: null }) // wallets
       .mockResolvedValueOnce({ data: fakeProfile, error: null }); // profiles
 
@@ -121,8 +122,8 @@ describe("useWallet", () => {
 
   it("retorna loading=true durante o fetch", async () => {
     // Nunca resolve — mantém loading=true
-    const single = supabaseMock.single as ReturnType<typeof vi.fn>;
-    single.mockReturnValue(new Promise(() => {}));
+    const maybeSingle = supabaseMock.maybeSingle as ReturnType<typeof vi.fn>;
+    maybeSingle.mockReturnValue(new Promise(() => {}));
     const limit = supabaseMock.limit as ReturnType<typeof vi.fn>;
     limit.mockReturnValue(new Promise(() => {}));
 
@@ -136,10 +137,10 @@ describe("useWallet", () => {
   });
 
   it("propaga erro quando walletResult.error existe", async () => {
-    const single = supabaseMock.single as ReturnType<typeof vi.fn>;
+    const maybeSingle = supabaseMock.maybeSingle as ReturnType<typeof vi.fn>;
     const limit = supabaseMock.limit as ReturnType<typeof vi.fn>;
 
-    single
+    maybeSingle
       .mockResolvedValueOnce({ data: null, error: new Error("wallet error") })
       .mockResolvedValueOnce({ data: { can_withdraw: true }, error: null });
     limit.mockResolvedValueOnce({ data: [], error: null });
@@ -156,10 +157,10 @@ describe("useWallet", () => {
   });
 
   it("propaga erro quando profileResult.error existe (BUG corrigido no Sprint 2)", async () => {
-    const single = supabaseMock.single as ReturnType<typeof vi.fn>;
+    const maybeSingle = supabaseMock.maybeSingle as ReturnType<typeof vi.fn>;
     const limit = supabaseMock.limit as ReturnType<typeof vi.fn>;
 
-    single
+    maybeSingle
       .mockResolvedValueOnce({ data: { id: "w-1", balance: 0 }, error: null }) // wallet ok
       .mockResolvedValueOnce({
         data: null,
@@ -179,10 +180,10 @@ describe("useWallet", () => {
   });
 
   it("retorna canWithdraw=false quando profile.can_withdraw=false", async () => {
-    const single = supabaseMock.single as ReturnType<typeof vi.fn>;
+    const maybeSingle = supabaseMock.maybeSingle as ReturnType<typeof vi.fn>;
     const limit = supabaseMock.limit as ReturnType<typeof vi.fn>;
 
-    single
+    maybeSingle
       .mockResolvedValueOnce({ data: { id: "w-1", balance: 200 }, error: null })
       .mockResolvedValueOnce({ data: { can_withdraw: false }, error: null });
     limit.mockResolvedValueOnce({ data: [], error: null });
@@ -205,7 +206,7 @@ describe("useWallet", () => {
       loading: false,
     });
 
-    const single = supabaseMock.single as ReturnType<typeof vi.fn>;
+    const maybeSingle = supabaseMock.maybeSingle as ReturnType<typeof vi.fn>;
     const limit = supabaseMock.limit as ReturnType<typeof vi.fn>;
 
     const { useWallet } = await import("@/hooks/useWallet");
@@ -219,7 +220,7 @@ describe("useWallet", () => {
     expect(result.current.transactions).toEqual([]);
 
     // Supabase não deve ter sido chamado
-    expect(single).not.toHaveBeenCalled();
+    expect(maybeSingle).not.toHaveBeenCalled();
     expect(limit).not.toHaveBeenCalled();
   });
 });

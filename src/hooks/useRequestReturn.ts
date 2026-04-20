@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface RequestReturnResult {
   success: boolean;
@@ -10,7 +10,6 @@ interface RequestReturnResult {
 
 export function useRequestReturn() {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   const requestReturn = async (
     purchaseId: string,
@@ -38,18 +37,13 @@ export function useRequestReturn() {
         throw new Error(result.error || "Erro ao solicitar devolução");
       }
 
-      toast({
-        title: "Devolução solicitada",
+      toast.success("Devolução solicitada", {
         description: "Sua solicitação será analisada em breve.",
       });
 
       return result;
     } catch (error: any) {
-      toast({
-        title: "Erro ao solicitar devolução",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao solicitar devolução", { description: error.message });
       return { success: false, error: error.message };
     } finally {
       setLoading(false);

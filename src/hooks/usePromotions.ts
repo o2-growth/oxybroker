@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
 export type PromotionType = "discount" | "cashback";
@@ -88,7 +88,6 @@ export interface CreatePromotionInput {
 }
 
 export function usePromotions() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -219,17 +218,12 @@ export function usePromotions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["promotions"] });
-      toast({
-        title: "Promoção criada",
+      toast.success("Promoção criada", {
         description: "A promoção foi criada com sucesso.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao criar promoção",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao criar promoção", { description: error.message });
     },
   });
 
@@ -306,17 +300,12 @@ export function usePromotions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["promotions"] });
-      toast({
-        title: "Promoção atualizada",
+      toast.success("Promoção atualizada", {
         description: "A promoção foi atualizada com sucesso.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar promoção",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar promoção", { description: error.message });
     },
   });
 
@@ -331,19 +320,14 @@ export function usePromotions() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["promotions"] });
-      toast({
-        title: variables.is_active ? "Promoção ativada" : "Promoção pausada",
+      toast.success(variables.is_active ? "Promoção ativada" : "Promoção pausada", {
         description: variables.is_active
           ? "A promoção está ativa e disponível para uso."
           : "A promoção foi pausada e não está mais disponível.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar promoção",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar promoção", { description: error.message });
     },
   });
 
@@ -354,17 +338,12 @@ export function usePromotions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["promotions"] });
-      toast({
-        title: "Promoção excluída",
+      toast.success("Promoção excluída", {
         description: "A promoção foi excluída com sucesso.",
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Erro ao excluir promoção",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error("Erro ao excluir promoção", { description: error.message });
     },
   });
 

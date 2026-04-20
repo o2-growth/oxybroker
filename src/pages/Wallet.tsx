@@ -104,18 +104,6 @@ export default function WalletPage() {
     }
   }, [searchParams, setSearchParams, refetch, trackDomainEvent]);
 
-  if (authLoading) {
-    return (
-      <AppShell>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-40" />
-          <Skeleton className="h-64" />
-        </div>
-      </AppShell>
-    );
-  }
-
   if (!user) {
     return null;
   }

@@ -131,76 +131,61 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
     fetchFilterOptions();
   }, []);
 
-  // Fetch lots with filters - always live, sorted by ends_at
+  // Fetch lots with joined assets and bids — single query instead of 4 sequential
   useEffect(() => {
+    let cancelled = false;
+
     const fetchLots = async () => {
+      if (cancelled) return;
       setLoading(true);
       setError(null);
 
       try {
-        // Build main query - only live lots, sorted by time remaining
-        const query = supabase
+        console.log("[OXY:Marketplace] fetching lots (join query)…");
+        const { data, error: queryError } = await supabase
           .from("lots")
-          .select("*")
+          .select(
+            "*, lot_items(assets(id, asset_type, sector, location_state, location_city, base_score)), bids(id)"
+          )
           .eq("status", "live")
           .order("ends_at", { ascending: true, nullsFirst: false });
 
-        const { data: lotsData, error: lotsError } = await query;
-        if (lotsError) throw lotsError;
+        if (cancelled) return;
+        if (queryError) {
+          console.error("[OXY:Marketplace] query error:", queryError.message);
+          throw queryError;
+        }
+        console.log("[OXY:Marketplace] lots received:", data?.length ?? 0);
 
-        if (!lotsData || lotsData.length === 0) {
+        if (!data || data.length === 0) {
           setLots([]);
           return;
         }
 
-        const lotIds = lotsData.map((l) => l.id);
-
-        // Fetch lot_items to get asset IDs
-        const { data: lotItems } = await supabase
-          .from("lot_items")
-          .select("lot_id, asset_id")
-          .in("lot_id", lotIds);
-
-        // Fetch assets
-        const assetIds = [...new Set(lotItems?.map((li) => li.asset_id) || [])];
-        const { data: assets } = await supabase
-          .from("assets")
-          .select("id, asset_type, sector, location_state, location_city, base_score")
-          .in("id", assetIds);
-
-        // Fetch bids count
-        const { data: bids } = await supabase
-          .from("bids")
-          .select("lot_id")
-          .in("lot_id", lotIds);
-
-        // Map assets to lots
-        const assetsByLot: Record<string, typeof assets> = {};
-        lotItems?.forEach((li) => {
-          if (!assetsByLot[li.lot_id]) assetsByLot[li.lot_id] = [];
-          const asset = assets?.find((a) => a.id === li.asset_id);
-          if (asset) assetsByLot[li.lot_id].push(asset);
-        });
-
-        // Build lots with assets
-        let lotsWithAssets: LotWithAssets[] = lotsData.map((lot) => {
-          const lotAssets = assetsByLot[lot.id] || [];
-          return {
-            ...lot,
-            assets: lotAssets.map((a) => ({
+        // Build LotWithAssets from the joined result
+        let lotsWithAssets: LotWithAssets[] = data.map((lot: any) => {
+          const lotAssets = (lot.lot_items || [])
+            .map((li: any) => li.assets)
+            .filter(Boolean)
+            .map((a: any) => ({
               asset_type: a.asset_type,
               sector: a.sector,
               location_state: a.location_state,
               location_city: a.location_city,
               base_score: a.base_score,
-            })),
-            total_score: lotAssets.reduce((sum, a) => sum + a.base_score, 0),
+            }));
+
+          const { lot_items: _li, bids: lotBids, ...lotFields } = lot;
+          return {
+            ...lotFields,
+            assets: lotAssets,
+            total_score: lotAssets.reduce((sum: number, a: any) => sum + a.base_score, 0),
             asset_count: lotAssets.length,
-            bid_count: bids?.filter((b) => b.lot_id === lot.id).length || 0,
+            bid_count: (lotBids || []).length,
           };
         });
 
-        // Apply asset-based filters
+        // Apply asset-based filters client-side
         if (filters.assetTypes.length > 0) {
           lotsWithAssets = lotsWithAssets.filter((lot) =>
             lot.assets.some((a) => filters.assetTypes.includes(a.asset_type))
@@ -221,11 +206,11 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
           );
         }
 
-        setLots(lotsWithAssets);
+        if (!cancelled) setLots(lotsWithAssets);
       } catch (err: any) {
-        setError(err.message);
+        if (!cancelled) setError(err.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -237,11 +222,12 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lots" },
-        () => fetchLots()
+        () => { if (!cancelled) fetchLots(); }
       )
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
   }, [filters]);
