@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vite temp files
+vite.config.ts.timestamp-*
+
+# Supabase CLI temp
+supabase/.temp/

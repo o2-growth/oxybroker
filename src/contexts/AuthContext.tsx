@@ -67,42 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    console.log("[OXY:Auth] init — fetching session…");
-    // Timeout de segurança: se o auth demorar > 8s, libera o loading
-    const loadingTimeout = setTimeout(() => {
-      console.warn("[OXY:Auth] 8s timeout — forcing loading=false");
-      setLoading(false);
-    }, 8000);
+    console.log("[OXY:Auth] init — subscribing to auth events…");
 
-    // Buscar sessao inicial antes de registrar o listener
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        clearTimeout(loadingTimeout);
-        console.log("[OXY:Auth] getSession →", session ? `user=${session.user.id}` : "no session");
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          fetchProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        clearTimeout(loadingTimeout);
-        console.error("[OXY:Auth] getSession error:", err);
-        setLoading(false);
-      });
-
-    // UMA unica subscription para toda a aplicacao
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`[OXY:Auth] event=${event}`, session ? `user=${session.user.id}` : "no session");
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        fetchProfile(session.user.id);
       } else {
         setProfile(null);
         setLoading(false);
@@ -110,7 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);

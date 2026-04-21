@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -152,26 +152,41 @@ export type Database = {
       app_settings: {
         Row: {
           bidding_extension_seconds: number
+          bracket_multipliers: Json
+          buy_now_premium_multiplier: number
           created_at: string
           id: string
+          max_sniping_extensions: number
+          mql_base_value: number
           return_window_hours: number
           scoring_weights: Json | null
+          sla_minutes: number
           updated_at: string
         }
         Insert: {
           bidding_extension_seconds?: number
+          bracket_multipliers?: Json
+          buy_now_premium_multiplier?: number
           created_at?: string
           id?: string
+          max_sniping_extensions?: number
+          mql_base_value?: number
           return_window_hours?: number
           scoring_weights?: Json | null
+          sla_minutes?: number
           updated_at?: string
         }
         Update: {
           bidding_extension_seconds?: number
+          bracket_multipliers?: Json
+          buy_now_premium_multiplier?: number
           created_at?: string
           id?: string
+          max_sniping_extensions?: number
+          mql_base_value?: number
           return_window_hours?: number
           scoring_weights?: Json | null
+          sla_minutes?: number
           updated_at?: string
         }
         Relationships: []
@@ -318,6 +333,111 @@ export type Database = {
         }
         Relationships: []
       }
+      leads_inbox: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cnpj: string | null
+          contato_cargo: string | null
+          contato_email: string | null
+          contato_nome: string
+          contato_telefone: string | null
+          created_at: string
+          expired_at: string | null
+          faturamento_bracket: Database["public"]["Enums"]["revenue_bracket"]
+          id: string
+          lot_id: string | null
+          observacoes: string | null
+          origem: string
+          payload_raw: Json
+          pipefy_card_id: string | null
+          pipefy_sent_at: string | null
+          price_cached: number | null
+          purchase_id: string | null
+          razao_social: string
+          received_at: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          setor: string
+          status: Database["public"]["Enums"]["lead_inbox_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_email?: string | null
+          contato_nome: string
+          contato_telefone?: string | null
+          created_at?: string
+          expired_at?: string | null
+          faturamento_bracket: Database["public"]["Enums"]["revenue_bracket"]
+          id?: string
+          lot_id?: string | null
+          observacoes?: string | null
+          origem: string
+          payload_raw?: Json
+          pipefy_card_id?: string | null
+          pipefy_sent_at?: string | null
+          price_cached?: number | null
+          purchase_id?: string | null
+          razao_social: string
+          received_at?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          setor: string
+          status?: Database["public"]["Enums"]["lead_inbox_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_email?: string | null
+          contato_nome?: string
+          contato_telefone?: string | null
+          created_at?: string
+          expired_at?: string | null
+          faturamento_bracket?: Database["public"]["Enums"]["revenue_bracket"]
+          id?: string
+          lot_id?: string | null
+          observacoes?: string | null
+          origem?: string
+          payload_raw?: Json
+          pipefy_card_id?: string | null
+          pipefy_sent_at?: string | null
+          price_cached?: number | null
+          purchase_id?: string | null
+          razao_social?: string
+          received_at?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          setor?: string
+          status?: Database["public"]["Enums"]["lead_inbox_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_inbox_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_inbox_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lot_items: {
         Row: {
           asset_id: string
@@ -353,12 +473,15 @@ export type Database = {
       }
       lots: {
         Row: {
+          auction_type: Database["public"]["Enums"]["auction_type"]
           created_at: string
           created_by: string | null
           current_price: number
           description: string | null
           ends_at: string | null
+          extension_count: number
           id: string
+          lead_inbox_id: string | null
           min_bid_increment: number
           starting_price: number
           starts_at: string | null
@@ -368,12 +491,15 @@ export type Database = {
           winner_user_id: string | null
         }
         Insert: {
+          auction_type?: Database["public"]["Enums"]["auction_type"]
           created_at?: string
           created_by?: string | null
           current_price?: number
           description?: string | null
           ends_at?: string | null
+          extension_count?: number
           id?: string
+          lead_inbox_id?: string | null
           min_bid_increment?: number
           starting_price?: number
           starts_at?: string | null
@@ -383,12 +509,15 @@ export type Database = {
           winner_user_id?: string | null
         }
         Update: {
+          auction_type?: Database["public"]["Enums"]["auction_type"]
           created_at?: string
           created_by?: string | null
           current_price?: number
           description?: string | null
           ends_at?: string | null
+          extension_count?: number
           id?: string
+          lead_inbox_id?: string | null
           min_bid_increment?: number
           starting_price?: number
           starts_at?: string | null
@@ -397,7 +526,22 @@ export type Database = {
           updated_at?: string
           winner_user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lots_lead_inbox_id_fkey"
+            columns: ["lead_inbox_id"]
+            isOneToOne: false
+            referencedRelation: "leads_inbox"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lots_lead_inbox_id_fkey"
+            columns: ["lead_inbox_id"]
+            isOneToOne: false
+            referencedRelation: "leads_pending_pipefy_handoff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -879,6 +1023,45 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key_hash: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          revoked_by: string | null
+          scope: string[]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope?: string[]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope?: string[]
+        }
+        Relationships: []
+      }
       withdrawals: {
         Row: {
           amount: number
@@ -917,6 +1100,63 @@ export type Database = {
       }
     }
     Views: {
+      leads_pending_pipefy_handoff: {
+        Row: {
+          cnpj: string | null
+          contato_cargo: string | null
+          contato_email: string | null
+          contato_nome: string | null
+          contato_telefone: string | null
+          expired_at: string | null
+          faturamento_bracket:
+            | Database["public"]["Enums"]["revenue_bracket"]
+            | null
+          id: string | null
+          observacoes: string | null
+          origem: string | null
+          payload_raw: Json | null
+          razao_social: string | null
+          received_at: string | null
+          setor: string | null
+        }
+        Insert: {
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_email?: string | null
+          contato_nome?: string | null
+          contato_telefone?: string | null
+          expired_at?: string | null
+          faturamento_bracket?:
+            | Database["public"]["Enums"]["revenue_bracket"]
+            | null
+          id?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          payload_raw?: Json | null
+          razao_social?: string | null
+          received_at?: string | null
+          setor?: string | null
+        }
+        Update: {
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_email?: string | null
+          contato_nome?: string | null
+          contato_telefone?: string | null
+          expired_at?: string | null
+          faturamento_bracket?:
+            | Database["public"]["Enums"]["revenue_bracket"]
+            | null
+          id?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          payload_raw?: Json | null
+          razao_social?: string | null
+          received_at?: string | null
+          setor?: string | null
+        }
+        Relationships: []
+      }
       profiles_public: {
         Row: {
           avatar_url: string | null
@@ -993,6 +1233,15 @@ export type Database = {
       }
     }
     Functions: {
+      admin_adjust_balance_atomic: {
+        Args: {
+          p_admin_id: string
+          p_amount: number
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       apply_promotion: {
         Args: {
           p_applies_to: string
@@ -1006,6 +1255,17 @@ export type Database = {
       buy_now_atomic: {
         Args: { p_lot_id: string; p_user_id: string }
         Returns: Json
+      }
+      buy_now_lead_pre_auction: {
+        Args: { p_buyer_id: string; p_lead_id: string }
+        Returns: Json
+      }
+      calculate_lead_price: {
+        Args: {
+          p_bracket: Database["public"]["Enums"]["revenue_bracket"]
+          p_is_pre_auction?: boolean
+        }
+        Returns: number
       }
       calculate_promotion_benefit: {
         Args: { p_original_amount: number; p_promotion_id: string }
@@ -1022,6 +1282,7 @@ export type Database = {
         }
         Returns: Json
       }
+      expire_unsold_lead: { Args: { p_lot_id: string }; Returns: Json }
       get_active_promotion: {
         Args: { p_amount: number; p_applies_to: string; p_user_id: string }
         Returns: {
@@ -1055,11 +1316,23 @@ export type Database = {
         Args: { p_promotion_id: string; p_user_id: string }
         Returns: boolean
       }
+      mark_lead_sold_auction: {
+        Args: { p_lot_id: string; p_purchase_id: string }
+        Returns: Json
+      }
       place_bid_atomic: {
         Args: { p_amount: number; p_lot_id: string; p_user_id: string }
         Returns: Json
       }
       process_return_atomic: { Args: { p_return_id: string }; Returns: Json }
+      promote_lead_to_auction: {
+        Args: {
+          p_created_by: string
+          p_custom_duration_minutes?: number
+          p_lead_id: string
+        }
+        Returns: string
+      }
       request_withdrawal_atomic: {
         Args: { p_amount: number; p_bank_info: Json; p_user_id: string }
         Returns: Json
@@ -1080,14 +1353,29 @@ export type Database = {
         | "returned"
         | "disabled"
       asset_type: "lead" | "mlq" | "meeting" | "mql" | "client"
+      auction_type: "single_lead" | "bundle"
       benefit_type: "percentage" | "fixed"
       eligibility_type: "global" | "category" | "individual"
+      lead_inbox_status:
+        | "pending_review"
+        | "approved"
+        | "rejected"
+        | "in_auction"
+        | "sold_pre_auction"
+        | "sold_auction"
+        | "expired"
       lot_status: "draft" | "live" | "ended" | "cancelled"
       notification_channel: "in_app" | "email"
       promotion_applies_to: "topup" | "bid" | "purchase"
       promotion_type: "discount" | "cashback"
       purchase_status: "paid" | "refunded" | "disputed"
       return_status: "requested" | "approved" | "rejected" | "processed"
+      revenue_bracket:
+        | "200k_350k"
+        | "350k_500k"
+        | "500k_1m"
+        | "1m_5m"
+        | "5m_plus"
       schedule_type: "one_time" | "recurring"
       transfer_status: "completed" | "reversed"
       transfer_type: "balance" | "asset"
@@ -1237,14 +1525,31 @@ export const Constants = {
         "disabled",
       ],
       asset_type: ["lead", "mlq", "meeting", "mql", "client"],
+      auction_type: ["single_lead", "bundle"],
       benefit_type: ["percentage", "fixed"],
       eligibility_type: ["global", "category", "individual"],
+      lead_inbox_status: [
+        "pending_review",
+        "approved",
+        "rejected",
+        "in_auction",
+        "sold_pre_auction",
+        "sold_auction",
+        "expired",
+      ],
       lot_status: ["draft", "live", "ended", "cancelled"],
       notification_channel: ["in_app", "email"],
       promotion_applies_to: ["topup", "bid", "purchase"],
       promotion_type: ["discount", "cashback"],
       purchase_status: ["paid", "refunded", "disputed"],
       return_status: ["requested", "approved", "rejected", "processed"],
+      revenue_bracket: [
+        "200k_350k",
+        "350k_500k",
+        "500k_1m",
+        "1m_5m",
+        "5m_plus",
+      ],
       schedule_type: ["one_time", "recurring"],
       transfer_status: ["completed", "reversed"],
       transfer_type: ["balance", "asset"],

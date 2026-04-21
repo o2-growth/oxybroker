@@ -1,6 +1,12 @@
-project_id = "hwgqntftsjnqjchyzjzk"
+project_id = "wqpkrmfjzlmxgunyuozm"
 
 [functions.place-bid]
+verify_jwt = false
+
+[functions.lead-webhook-intake]
+verify_jwt = false
+
+[functions.pipefy-handoff]
 verify_jwt = false
 
 [functions.stripe-webhook]
@@ -31,4 +37,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-adjust-balance]
+verify_jwt = false
+
+[functions.log-event]
 verify_jwt = false
