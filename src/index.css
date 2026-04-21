@@ -1,9 +1,10 @@
-/* Oxy Hacker Design System - Dark, High Contrast, Clean Typography */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Oxy Hacker Design System - Dark, High Contrast, Clean Typography */
 
 @layer base {
   :root {

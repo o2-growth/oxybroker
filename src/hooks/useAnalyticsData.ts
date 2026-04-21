@@ -2,6 +2,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { DateRange } from "@/pages/admin/AdminAnalytics";
 
+function getEventMetadata(metadata: unknown): Record<string, unknown> | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  return metadata as Record<string, unknown>;
+}
+
+function getActorKey(event: {
+  session_id?: string | null;
+  user_id?: string | null;
+  entity_id?: string | null;
+}): string | null {
+  return event.session_id ?? event.user_id ?? event.entity_id ?? null;
+}
+
 // Overview metrics
 export function useAnalyticsOverview(dateRange: DateRange) {
   return useQuery({
@@ -219,7 +235,7 @@ export function useAnalyticsFunnel(dateRange: DateRange) {
       // Get all relevant events
       const { data, error } = await supabase
         .from("analytics_events")
-        .select("event_type, event_name, route, session_id")
+        .select("event_type, event_name, route, session_id, user_id, entity_id, metadata")
         .gte("occurred_at", from)
         .lte("occurred_at", to);
 
@@ -227,28 +243,42 @@ export function useAnalyticsFunnel(dateRange: DateRange) {
 
       // Count unique sessions for each funnel step
       const marketplaceViews = new Set(
-        data?.filter(e => e.event_type === "page_view" && e.route === "/marketplace")
-          .map(e => e.session_id)
+        data
+          ?.filter(e => e.event_type === "page_view" && e.route === "/marketplace")
+          .map(getActorKey)
+          .filter((value): value is string => Boolean(value))
       );
 
       const lotViews = new Set(
-        data?.filter(e => e.event_type === "page_view" && e.route?.startsWith("/lots/"))
-          .map(e => e.session_id)
+        data
+          ?.filter(e => e.event_type === "page_view" && e.route?.startsWith("/lots/"))
+          .map(getActorKey)
+          .filter((value): value is string => Boolean(value))
       );
 
       const bidsPlaced = new Set(
-        data?.filter(e => e.event_name === "bid_placed")
-          .map(e => e.session_id)
+        data
+          ?.filter(e => e.event_name === "bid_placed")
+          .map(getActorKey)
+          .filter((value): value is string => Boolean(value))
       );
 
       const auctionsWon = new Set(
-        data?.filter(e => e.event_name === "auction_won")
-          .map(e => e.session_id)
+        data
+          ?.filter(e => e.event_name === "auction_won")
+          .map(getActorKey)
+          .filter((value): value is string => Boolean(value))
       );
 
       const purchasesPaid = new Set(
-        data?.filter(e => e.event_name === "purchase_created")
-          .map(e => e.session_id)
+        data
+          ?.filter((e) => {
+            if (e.event_name !== "purchase_created") return false;
+            const metadata = getEventMetadata(e.metadata);
+            return metadata?.purchase_method === "auction";
+          })
+          .map(getActorKey)
+          .filter((value): value is string => Boolean(value))
       );
 
       return [
@@ -256,7 +286,7 @@ export function useAnalyticsFunnel(dateRange: DateRange) {
         { step: "Lot View", count: lotViews.size },
         { step: "Bid Placed", count: bidsPlaced.size },
         { step: "Auction Won", count: auctionsWon.size },
-        { step: "Purchase Paid", count: purchasesPaid.size },
+        { step: "Auction Purchase", count: purchasesPaid.size },
       ];
     },
   });

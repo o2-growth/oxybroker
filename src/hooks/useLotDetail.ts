@@ -71,17 +71,66 @@ export function useLotDetail(lotId: string | undefined) {
   const queryClient = useQueryClient();
   const [wasExtended, setWasExtended] = useState(false);
 
-  const {
-    data: lot,
-    isLoading: loading,
-    error: queryError,
-    refetch,
-  } = useQuery({
-    queryKey: lotId ? queryKeys.lots.detail(lotId) : (["lots", "detail", ""] as const),
-    queryFn: () => fetchLotDetail(lotId!),
-    enabled: Boolean(lotId),
-    staleTime: 10_000, // 10s — realtime cuida da frescura apos isso
-  });
+  const fetchLot = useCallback(async () => {
+    if (!lotId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch lot
+      const { data: lotData, error: lotError } = await supabase
+        .from("lots")
+        .select("*")
+        .eq("id", lotId)
+        .maybeSingle();
+
+      if (lotError) throw lotError;
+      if (!lotData) {
+        setError("Lote não encontrado");
+        return;
+      }
+
+      // Fetch bids
+      const { data: bidsData, error: bidsError } = await supabase
+        .from("bids")
+        .select("*")
+        .eq("lot_id", lotId)
+        .order("amount", { ascending: false });
+
+      if (bidsError) throw bidsError;
+
+      // Fetch assets through lot_items
+      const { data: lotItems, error: lotItemsError } = await supabase
+        .from("lot_items")
+        .select("asset_id")
+        .eq("lot_id", lotId);
+
+      if (lotItemsError) throw lotItemsError;
+
+      let assets: Asset[] = [];
+      if (lotItems && lotItems.length > 0) {
+        const assetIds = lotItems.map((item) => item.asset_id);
+        const { data: assetsData, error: assetsError } = await supabase
+          .from("assets")
+          .select("*")
+          .in("id", assetIds);
+
+        if (assetsError) throw assetsError;
+        assets = assetsData || [];
+      }
+
+      setLot({
+        ...lotData,
+        bids: bidsData || [],
+        assets,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }, [lotId]);
 
   useEffect(() => {
     if (!lotId) return;

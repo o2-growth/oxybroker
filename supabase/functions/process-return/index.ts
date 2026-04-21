@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { getAmountBucket, logAnalyticsEvent } from "../_shared/analytics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,6 +172,19 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    await logAnalyticsEvent(supabaseAdmin, {
+      event_type: "domain_event",
+      event_name: "refund_processed",
+      user_id: returnRecord.requested_by,
+      entity_type: "return",
+      entity_id: return_id,
+      status: "success",
+      metadata: {
+        amount_bucket: getAmountBucket(processResult.refunded_amount ?? Number(returnRecord.purchase?.amount ?? 0)),
+        purchase_id: returnRecord.purchase_id,
+      },
+    });
 
     return new Response(
       JSON.stringify({

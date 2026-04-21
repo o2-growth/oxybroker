@@ -25,6 +25,7 @@ interface LotWithAssets extends Lot {
     location_state: string | null;
     location_city: string | null;
     base_score: number;
+    image_url: string | null;
   }[];
   total_score: number;
   asset_count: number;
@@ -150,36 +151,63 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
           .eq("status", "live")
           .order("ends_at", { ascending: true, nullsFirst: false });
 
+        const { data: lotsData, error: lotsError } = await query;
+        if (lotsError) throw lotsError;
         if (cancelled) return;
-        if (queryError) {
-          console.error("[OXY:Marketplace] query error:", queryError.message);
-          throw queryError;
-        }
-        console.log("[OXY:Marketplace] lots received:", data?.length ?? 0);
 
         if (!data || data.length === 0) {
           setLots([]);
           return;
         }
 
-        // Build LotWithAssets from the joined result
-        let lotsWithAssets: LotWithAssets[] = data.map((lot: any) => {
-          const lotAssets = (lot.lot_items || [])
-            .map((li: any) => li.assets)
-            .filter(Boolean)
-            .map((a: any) => ({
-              asset_type: a.asset_type,
-              sector: a.sector,
-              location_state: a.location_state,
-              location_city: a.location_city,
-              base_score: a.base_score,
-            }));
+        const lotIds = lotsData.map((l) => l.id);
 
-          const { lot_items: _li, bids: lotBids, ...lotFields } = lot;
+        // Fetch lot_items to get asset IDs
+        const { data: lotItems } = await supabase
+          .from("lot_items")
+          .select("lot_id, asset_id")
+          .in("lot_id", lotIds);
+
+        // Fetch assets
+        const assetIds = [...new Set(lotItems?.map((li) => li.asset_id) || [])];
+        const { data: assets } = await supabase
+          .from("assets")
+          .select("id, asset_type, sector, location_state, location_city, base_score, metadata")
+          .in("id", assetIds);
+
+        // Fetch bids count
+        const { data: bids } = await supabase
+          .from("bids")
+          .select("lot_id")
+          .in("lot_id", lotIds);
+
+        if (cancelled) return;
+
+        // Map assets to lots
+        const assetsByLot: Record<string, typeof assets> = {};
+        lotItems?.forEach((li) => {
+          if (!assetsByLot[li.lot_id]) assetsByLot[li.lot_id] = [];
+          const asset = assets?.find((a) => a.id === li.asset_id);
+          if (asset) assetsByLot[li.lot_id].push(asset);
+        });
+
+        // Build lots with assets
+        let lotsWithAssets: LotWithAssets[] = lotsData.map((lot) => {
+          const lotAssets = assetsByLot[lot.id] || [];
           return {
-            ...lotFields,
-            assets: lotAssets,
-            total_score: lotAssets.reduce((sum: number, a: any) => sum + a.base_score, 0),
+            ...lot,
+            assets: lotAssets.map((a) => {
+              const meta = a.metadata as Record<string, unknown> | null;
+              return {
+                asset_type: a.asset_type,
+                sector: a.sector,
+                location_state: a.location_state,
+                location_city: a.location_city,
+                base_score: a.base_score,
+                image_url: (meta?.image_url as string) || null,
+              };
+            }),
+            total_score: lotAssets.reduce((sum, a) => sum + a.base_score, 0),
             asset_count: lotAssets.length,
             bid_count: (lotBids || []).length,
           };
@@ -206,11 +234,17 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
           );
         }
 
-        if (!cancelled) setLots(lotsWithAssets);
-      } catch (err: any) {
-        if (!cancelled) setError(err.message);
+        if (!cancelled) {
+          setLots(lotsWithAssets);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Erro inesperado");
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
@@ -222,7 +256,9 @@ export function useMarketplaceFilters(): UseMarketplaceFiltersResult {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lots" },
-        () => { if (!cancelled) fetchLots(); }
+        () => {
+          if (!cancelled) fetchLots();
+        }
       )
       .subscribe();
 

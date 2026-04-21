@@ -15,10 +15,12 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Upload,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -49,12 +51,28 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { CsvImportDialog } from "@/components/admin/CsvImportDialog";
 import { useAssets } from "@/hooks/useAssets";
+import { AssetImageUpload } from "@/components/admin/AssetImageUpload";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
 type Asset = Database["public"]["Tables"]["assets"]["Row"];
 type AssetStatus = Database["public"]["Enums"]["asset_status"];
 type AssetType = Database["public"]["Enums"]["asset_type"];
+
+/** Helper to extract image_url from asset metadata JSONB field */
+function getAssetImageUrl(asset: Asset): string | null {
+  if (
+    asset.metadata &&
+    typeof asset.metadata === "object" &&
+    !Array.isArray(asset.metadata) &&
+    "image_url" in asset.metadata
+  ) {
+    return (asset.metadata as Record<string, unknown>).image_url as string | null;
+  }
+  return null;
+}
 
 const statusConfig: Record<AssetStatus, { label: string; className: string }> = {
   draft: { label: "Rascunho", className: "bg-muted text-muted-foreground" },
@@ -83,6 +101,7 @@ const emptyFormData = {
   location_state: "",
   employees_count: "",
   base_score: "0",
+  imageUrl: null as string | null,
 };
 
 const PAGE_SIZE = 10;
@@ -113,6 +132,9 @@ export default function AdminAssets() {
     isDeleting,
   } = useAssets({ search, status: statusFilter, type: typeFilter, page, pageSize: PAGE_SIZE });
 
+  const queryClient = useQueryClient();
+
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
@@ -137,6 +159,7 @@ export default function AdminAssets() {
       location_state: asset.location_state || "",
       employees_count: asset.employees_count?.toString() || "",
       base_score: asset.base_score?.toString() || "0",
+      imageUrl: getAssetImageUrl(asset),
     });
     setDialogOpen(true);
   };
@@ -149,6 +172,19 @@ export default function AdminAssets() {
   const handleSubmit = async () => {
     if (!formData.title.trim()) return;
 
+    // Merge image_url into existing metadata (preserve other metadata fields)
+    const existingMetadata =
+      editingAsset?.metadata &&
+      typeof editingAsset.metadata === "object" &&
+      !Array.isArray(editingAsset.metadata)
+        ? (editingAsset.metadata as Record<string, unknown>)
+        : {};
+
+    const metadata = {
+      ...existingMetadata,
+      image_url: formData.imageUrl,
+    };
+
     const data = {
       title: formData.title.trim(),
       asset_type: formData.asset_type,
@@ -159,6 +195,7 @@ export default function AdminAssets() {
       location_state: formData.location_state.trim() || null,
       employees_count: formData.employees_count ? parseInt(formData.employees_count) : null,
       base_score: parseInt(formData.base_score) || 0,
+      metadata,
     };
 
     if (editingAsset) {
@@ -181,6 +218,10 @@ export default function AdminAssets() {
 
   const handleStatusChange = async (asset: Asset, newStatus: AssetStatus) => {
     await updateAssetStatus({ id: asset.id, status: newStatus });
+  };
+
+  const handleCsvImportSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["assets"] });
   };
 
   const isEditable = (asset: Asset) =>
@@ -210,10 +251,16 @@ export default function AdminAssets() {
               Gerencie os ativos disponíveis para leilão
             </p>
           </div>
-          <Button className="gap-2" onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4" />
-            Novo Ativo
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setCsvDialogOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Importar CSV
+            </Button>
+            <Button className="gap-2" onClick={handleOpenCreate}>
+              <Plus className="h-4 w-4" />
+              Novo Ativo
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -292,10 +339,26 @@ export default function AdminAssets() {
                 <tbody>
                   {assets.map((asset) => {
                     const status = statusConfig[asset.status];
+                    const thumbUrl = getAssetImageUrl(asset);
 
                     return (
                       <tr key={asset.id}>
-                        <td className="font-medium">{asset.title}</td>
+                        <td className="font-medium">
+                          <div className="flex items-center gap-3">
+                            {thumbUrl ? (
+                              <img
+                                src={thumbUrl}
+                                alt={asset.title}
+                                className="h-8 w-8 rounded object-cover shrink-0"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                                <Package className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                            <span>{asset.title}</span>
+                          </div>
+                        </td>
                         <td>
                           <Badge variant="outline" className="capitalize">
                             {assetTypeLabels[asset.asset_type]}
@@ -392,6 +455,9 @@ export default function AdminAssets() {
             <DialogTitle>
               {editingAsset ? "Editar Ativo" : "Novo Ativo"}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingAsset ? "Editar informações do ativo" : "Preencha os dados para criar um novo ativo"}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -539,6 +605,14 @@ export default function AdminAssets() {
                 />
               </div>
             </div>
+
+            <AssetImageUpload
+              assetId={editingAsset?.id ?? null}
+              imageUrl={formData.imageUrl}
+              onImageChange={(url) =>
+                setFormData((prev) => ({ ...prev, imageUrl: url }))
+              }
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -580,6 +654,13 @@ export default function AdminAssets() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Import Dialog */}
+      <CsvImportDialog
+        open={csvDialogOpen}
+        onOpenChange={setCsvDialogOpen}
+        onSuccess={handleCsvImportSuccess}
+      />
     </AppShell>
   );
 }

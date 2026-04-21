@@ -1,34 +1,116 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import type { LucideIcon } from "lucide-react";
-import { Bell, CheckCheck, Gavel, Wallet, Package } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  Gavel,
+  Wallet,
+  Package,
+  AlertTriangle,
+  RotateCcw,
+  type LucideIcon,
+} from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type Notification = Database["public"]["Tables"]["notifications"]["Row"];
+type NotificationPayload = Record<string, unknown>;
 
 const typeConfig: Record<
   string,
   { icon: LucideIcon; className: string }
 > = {
+  outbid: { icon: Gavel, className: "bg-oxy-warning/10 text-oxy-warning" },
   bid_outbid: { icon: Gavel, className: "bg-oxy-warning/10 text-oxy-warning" },
+  auction_won: { icon: Gavel, className: "bg-oxy-success/10 text-oxy-success" },
   bid_won: { icon: Gavel, className: "bg-oxy-success/10 text-oxy-success" },
+  ended: { icon: Gavel, className: "bg-muted text-muted-foreground" },
   auction_ended: { icon: Gavel, className: "bg-muted text-muted-foreground" },
   wallet_topup: { icon: Wallet, className: "bg-oxy-success/10 text-oxy-success" },
+  payment_failed: { icon: AlertTriangle, className: "bg-oxy-danger/10 text-oxy-danger" },
+  auction_payment_failed: { icon: AlertTriangle, className: "bg-oxy-danger/10 text-oxy-danger" },
+  return_requested: { icon: RotateCcw, className: "bg-amber-500/10 text-amber-500" },
+  return_rejected: { icon: RotateCcw, className: "bg-oxy-danger/10 text-oxy-danger" },
   purchase: { icon: Package, className: "bg-primary/10 text-primary" },
   default: { icon: Bell, className: "bg-muted text-muted-foreground" },
 };
 
+function getNotificationFallbackMessage(payload: Notification["payload"]): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const data = payload as NotificationPayload;
+  const message = data.message;
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+
+  const lotTitle = data.lot_title;
+  if (typeof lotTitle === "string" && lotTitle.trim()) {
+    return lotTitle;
+  }
+
+  return null;
+}
+
 export default function Notifications() {
+  const { user } = useAuth();
+  const userId = user?.id;
   const { trackAction } = useAnalytics();
   const { notifications, loading, markAsRead, markAllAsRead } = useNotifications();
 
-  const handleMarkAsRead = (notification: Notification) => {
-    if (notification.read_at) return;
-    trackAction("mark_read", undefined, "notification", notification.id);
-    markAsRead.mutate(notification.id);
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchNotifications = async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error(error);
+      } else {
+        setNotifications(data || []);
+      }
+      setLoading(false);
+    };
+
+    fetchNotifications();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel("user-notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  const markAsRead = async (id: string) => {
+    trackAction("mark_read", undefined, "notification", id);
+    await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", id);
   };
 
   const handleMarkAllAsRead = () => {
@@ -123,7 +205,7 @@ export default function Notifications() {
                       }`}
                     >
                       {notification.title ||
-                        (notification.payload as Record<string, string>)?.message ||
+                        getNotificationFallbackMessage(notification.payload) ||
                         "Nova notificação"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">

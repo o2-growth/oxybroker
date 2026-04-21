@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,17 +30,10 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Validate JWT and get authenticated user (pass token explicitly for server-side validation)
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseUser.auth.getUser(token);
+    // Validate JWT and get user
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 
-    console.log("Auth result:", {
-      hasUser: !!userData?.user,
-      userId: userData?.user?.id,
-      error: userError?.message,
-    });
-
-    if (userError || !userData?.user?.id) {
+    if (userError || !user) {
       console.error("Auth error:", userError);
       return new Response(
         JSON.stringify({ error: "Token inválido" }),
@@ -48,8 +41,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const adminId = userData.user.id;
-    console.log("Authenticated user:", adminId);
+    const adminId = user.id;
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);

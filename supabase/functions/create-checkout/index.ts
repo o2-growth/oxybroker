@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,13 +8,11 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Validate Authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -23,32 +21,27 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
 
-    // Verify user token
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    
-    if (claimsError || !claimsData?.claims) {
-      console.error("Auth error:", claimsError);
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
-    const userEmail = claimsData.claims.email as string | undefined;
+    const userId = user.id;
+    const userEmail = user.email;
 
-    // Parse request body
     const { amount } = await req.json();
 
-    // Validate amount
     if (typeof amount !== "number" || amount < 10 || amount > 10000) {
       return new Response(
         JSON.stringify({ error: "Valor inválido. Mínimo R$ 10, máximo R$ 10.000" }),
@@ -56,12 +49,10 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Check if customer exists
     let customerId: string | undefined;
     if (userEmail) {
       const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
@@ -70,10 +61,8 @@ serve(async (req) => {
       }
     }
 
-    // Get origin for redirect URLs
     const origin = req.headers.get("origin") || "https://lovable.app";
 
-    // Create Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : userEmail,
@@ -85,7 +74,7 @@ serve(async (req) => {
               name: "Recarga de Saldo",
               description: `Adicionar R$ ${amount.toFixed(2).replace(".", ",")} à sua carteira`,
             },
-            unit_amount: Math.round(amount * 100), // Convert to centavos
+            unit_amount: Math.round(amount * 100),
           },
           quantity: 1,
         },

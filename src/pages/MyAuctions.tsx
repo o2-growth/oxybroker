@@ -94,6 +94,7 @@ function AuctionCard({ item }: { item: MyAuctionItem }) {
 export default function MyAuctions() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: auctions = [], isLoading, error } = useMyAuctions();
 
   const activeAuctions = auctions.filter((a) => a.isActive);

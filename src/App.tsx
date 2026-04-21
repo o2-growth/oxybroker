@@ -1,13 +1,11 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OutbidNotificationProvider } from "@/components/providers/OutbidNotificationProvider";
-import { ProtectedRoute } from "@/components/routes/ProtectedRoute";
-import { AdminRoute } from "@/components/routes/AdminRoute";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useAuth } from "@/hooks/useAuth";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -30,7 +28,6 @@ import AdminAssets from "./pages/admin/AdminAssets";
 import AdminLots from "./pages/admin/AdminLots";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminPromotions from "./pages/admin/AdminPromotions";
-import AdminLeadsInbox from "./pages/admin/AdminLeadsInbox";
 
 import NotFound from "./pages/NotFound";
 
@@ -44,6 +41,42 @@ const queryClient = new QueryClient({
   },
 });
 
+function RouteLoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      Carregando...
+    </div>
+  );
+}
+
+function ProtectedRoute() {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return <RouteLoadingScreen />;
+  }
+
+  if (!user || profile?.suspended_at) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  return <Outlet />;
+}
+
+function GuestRoute() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <RouteLoadingScreen />;
+  }
+
+  if (user) {
+    return <Navigate to="/marketplace" replace />;
+  }
+
+  return <Outlet />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -52,143 +85,34 @@ const App = () => (
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
             <OutbidNotificationProvider>
-              <ErrorBoundary>
               <Routes>
-                {/* Redirect root to marketplace */}
-                <Route path="/" element={<Navigate to="/marketplace" replace />} />
+                <Route element={<GuestRoute />}>
+                  <Route path="/auth/login" element={<Login />} />
+                  <Route path="/auth/signup" element={<Signup />} />
+                </Route>
 
-                {/* Auth routes — publicas */}
-                <Route path="/auth/login" element={<Login />} />
-                <Route path="/auth/signup" element={<Signup />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/" element={<Navigate to="/marketplace" replace />} />
 
-                {/* Main routes — requerem autenticacao */}
-                <Route
-                  path="/marketplace"
-                  element={
-                    <ProtectedRoute>
-                      <Marketplace />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/lots/:id"
-                  element={
-                    <ProtectedRoute>
-                      <LotDetail />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/my-auctions"
-                  element={
-                    <ProtectedRoute>
-                      <MyAuctions />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/wallet"
-                  element={
-                    <ProtectedRoute>
-                      <WalletPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/transfers"
-                  element={
-                    <ProtectedRoute>
-                      <Transfers />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/purchases"
-                  element={
-                    <ProtectedRoute>
-                      <Purchases />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/notifications"
-                  element={
-                    <ProtectedRoute>
-                      <Notifications />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route path="/marketplace" element={<Marketplace />} />
+                  <Route path="/lots/:id" element={<LotDetail />} />
+                  <Route path="/my-auctions" element={<MyAuctions />} />
+                  <Route path="/wallet" element={<WalletPage />} />
+                  <Route path="/transfers" element={<Transfers />} />
+                  <Route path="/purchases" element={<Purchases />} />
+                  <Route path="/notifications" element={<Notifications />} />
 
-                {/* Admin routes — requerem role 'admin' */}
-                <Route
-                  path="/admin/settings"
-                  element={
-                    <AdminRoute>
-                      <AdminSettings />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/users"
-                  element={
-                    <AdminRoute>
-                      <AdminUsers />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/categories"
-                  element={
-                    <AdminRoute>
-                      <AdminCategories />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/assets"
-                  element={
-                    <AdminRoute>
-                      <AdminAssets />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/lots"
-                  element={
-                    <AdminRoute>
-                      <AdminLots />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/analytics"
-                  element={
-                    <AdminRoute>
-                      <AdminAnalytics />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/promotions"
-                  element={
-                    <AdminRoute>
-                      <AdminPromotions />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/leads-inbox"
-                  element={
-                    <AdminRoute>
-                      <AdminLeadsInbox />
-                    </AdminRoute>
-                  }
-                />
+                  <Route path="/admin/settings" element={<AdminSettings />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/categories" element={<AdminCategories />} />
+                  <Route path="/admin/assets" element={<AdminAssets />} />
+                  <Route path="/admin/lots" element={<AdminLots />} />
+                  <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                  <Route path="/admin/promotions" element={<AdminPromotions />} />
+                </Route>
 
-                {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              </ErrorBoundary>
             </OutbidNotificationProvider>
           </AuthProvider>
         </BrowserRouter>

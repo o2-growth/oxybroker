@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +12,7 @@ interface CreateUserRequest {
   full_name: string;
   role: "admin" | "master_franquia" | "franquia" | "oxy_hacker";
   franchise_category_id?: string | null;
+  can_withdraw?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -40,17 +41,16 @@ Deno.serve(async (req) => {
     });
 
     // Verify the caller's JWT
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsError } = await supabaseUser.auth.getClaims(token);
-    
-    if (claimsError || !claims?.claims) {
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const callerId = claims.claims.sub as string;
+    const callerId = user.id;
 
     // Create admin client to check caller's role
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: CreateUserRequest = await req.json();
-    const { email, password, full_name, role, franchise_category_id } = body;
+    const { email, password, full_name, role, franchise_category_id, can_withdraw } = body;
 
     // Validate required fields
     if (!email || !password || !full_name || !role) {
@@ -126,6 +126,7 @@ Deno.serve(async (req) => {
         franchise_category_id: franchise_category_id || null,
         full_name,
         email,
+        can_withdraw: can_withdraw ?? false,
       })
       .eq("id", userId);
 

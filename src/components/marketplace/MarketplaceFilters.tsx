@@ -10,6 +10,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -328,6 +329,9 @@ export function MarketplaceFilters({
         <SheetContent side="left" className="w-80">
           <SheetHeader>
             <SheetTitle>Filtros</SheetTitle>
+            <SheetDescription className="sr-only">
+              Filtrar lotes do marketplace por tipo, estado e setor
+            </SheetDescription>
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-80px)] mt-4 pr-4">
             <MobileFilterContent />

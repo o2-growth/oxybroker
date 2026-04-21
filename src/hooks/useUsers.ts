@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
+import { useAnalytics } from "./useAnalytics";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
 export interface UserProfile {
   id: string;
@@ -31,6 +33,7 @@ export interface CreateUserData {
   full_name: string;
   role: AppRole;
   franchise_category_id?: string | null;
+  can_withdraw?: boolean;
 }
 
 interface UseUsersOptions {
@@ -38,11 +41,17 @@ interface UseUsersOptions {
   pageSize?: number;
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Erro inesperado";
+}
+
 export function useUsers(options: UseUsersOptions = {}) {
   const { page = 1, pageSize = 10 } = options;
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const { toast } = useToast();
+  const { trackApiCall } = useAnalytics();
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -99,8 +108,12 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       setUsers(formattedUsers);
       setTotalCount(count || 0);
-    } catch (error) {
-      toast.error("Erro ao carregar usuários", { description: error instanceof Error ? error.message : String(error) });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao carregar usuários",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -109,7 +122,7 @@ export function useUsers(options: UseUsersOptions = {}) {
   const updateUser = async (userId: string, data: UpdateUserData) => {
     try {
       // Update profiles table
-      const updateData: UpdateUserData = {};
+      const updateData: ProfileUpdate = {};
       if (data.full_name !== undefined) updateData.full_name = data.full_name;
       if (data.role !== undefined) updateData.role = data.role;
       if (data.franchise_category_id !== undefined) updateData.franchise_category_id = data.franchise_category_id;
@@ -138,8 +151,12 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error) {
-      toast.error("Erro ao atualizar usuário", { description: error instanceof Error ? error.message : String(error) });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao atualizar usuário",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
       return false;
     }
   };
@@ -163,8 +180,12 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error) {
-      toast.error("Erro ao alterar status", { description: error instanceof Error ? error.message : String(error) });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao alterar status",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
       return false;
     }
   };
@@ -199,34 +220,74 @@ export function useUsers(options: UseUsersOptions = {}) {
 
       await fetchUsers();
       return true;
-    } catch (error) {
-      toast.error("Erro ao excluir usuário", { description: error instanceof Error ? error.message : String(error) });
+    } catch (error: unknown) {
+      toast({
+        title: "Erro ao excluir usuário",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
       return false;
     }
   };
 
   const createUser = async (data: CreateUserData) => {
+    const startedAt = Date.now();
     try {
-      const { error } = await supabase.functions.invoke("create-user", {
-        body: {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        trackApiCall("create-user", "error", Date.now() - startedAt, {
+          reason: "not_authenticated",
+        }, "profile");
+        toast({
+          title: "Erro de autenticação",
+          description: "Você precisa estar logado para criar usuários.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
           email: data.email,
           password: data.password,
           full_name: data.full_name,
           role: data.role,
           franchise_category_id: data.franchise_category_id,
-        },
+          can_withdraw: data.can_withdraw ?? false,
+        }),
       });
 
       if (error) throw error;
 
-      toast.success("Usuário criado", {
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao criar usuário");
+      }
+
+      trackApiCall("create-user", "success", Date.now() - startedAt, {
+        role: data.role,
+      }, "profile");
+
+      toast({
+        title: "Usuário criado",
         description: `O usuário ${data.full_name} foi criado com sucesso.`,
       });
 
       await fetchUsers();
       return true;
-    } catch (error) {
-      toast.error("Erro ao criar usuário", { description: error instanceof Error ? error.message : String(error) });
+    } catch (error: unknown) {
+      trackApiCall("create-user", "error", Date.now() - startedAt, {
+        error: getErrorMessage(error),
+      }, "profile");
+      toast({
+        title: "Erro ao criar usuário",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
       return false;
     }
   };
