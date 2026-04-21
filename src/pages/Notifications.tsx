@@ -57,60 +57,13 @@ function getNotificationFallbackMessage(payload: Notification["payload"]): strin
 }
 
 export default function Notifications() {
-  const { user } = useAuth();
-  const userId = user?.id;
   const { trackAction } = useAnalytics();
   const { notifications, loading, markAsRead, markAllAsRead } = useNotifications();
 
-  useEffect(() => {
-    if (!userId) return;
-
-    const fetchNotifications = async () => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error(error);
-      } else {
-        setNotifications(data || []);
-      }
-      setLoading(false);
-    };
-
-    fetchNotifications();
-
-    // Realtime subscription
-    const channel = supabase
-      .channel("user-notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
-
-  const markAsRead = async (id: string) => {
-    trackAction("mark_read", undefined, "notification", id);
-    await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", id);
+  const handleMarkAsRead = (notification: Notification) => {
+    if (notification.read_at) return;
+    trackAction("mark_read", undefined, "notification", notification.id);
+    markAsRead.mutate(notification.id);
   };
 
   const handleMarkAllAsRead = () => {
