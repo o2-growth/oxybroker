@@ -19,13 +19,11 @@ import {
   Eye,
   Package,
   X,
-  Clock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -62,13 +60,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 type Lot = Database["public"]["Tables"]["lots"]["Row"];
-type LotItem = Database["public"]["Tables"]["lot_items"]["Row"];
-type Asset = Database["public"]["Tables"]["assets"]["Row"];
 type LotStatus = Database["public"]["Enums"]["lot_status"];
-
-interface LotWithAssets extends Lot {
-  lot_items?: Array<LotItem & { assets: Asset }>;
-}
 
 const statusConfig: Record<LotStatus, { label: string; className: string }> = {
   draft: { label: "Rascunho", className: "bg-muted text-muted-foreground" },
@@ -77,19 +69,13 @@ const statusConfig: Record<LotStatus, { label: string; className: string }> = {
   cancelled: { label: "Cancelado", className: "oxy-badge-warning" },
 };
 
-const getDefaultEndsAt = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  return d.toISOString().slice(0, 16);
-};
-
 const emptyFormData = {
   title: "",
   description: "",
   starting_price: "0",
   min_bid_increment: "100",
   starts_at: "",
-  ends_at: getDefaultEndsAt(),
+  ends_at: "",
 };
 
 const PAGE_SIZE = 10;
@@ -122,8 +108,6 @@ export default function AdminLots() {
     isPublishing,
     isCancelling,
     isDeleting,
-    closeExpiredLots,
-    isClosingExpired,
   } = useAdminLots({ search, status: statusFilter, page, pageSize: PAGE_SIZE });
 
   const { availableAssets } = useAssets();
@@ -240,14 +224,14 @@ export default function AdminLots() {
   };
 
   // Get lot assets from the lots query data
-  const getLotAssets = (lotId: string): Asset[] => {
-    const lot = lots.find((l) => l.id === lotId) as LotWithAssets | undefined;
-    return lot?.lot_items?.map((item) => item.assets) || [];
+  const getLotAssets = (lotId: string) => {
+    const lot = lots.find((l) => l.id === lotId);
+    return (lot as any)?.lot_items?.map((item: any) => item.assets) || [];
   };
 
-  const getLinkedAssetIds = (): string[] => {
+  const getLinkedAssetIds = () => {
     const selectedLotAssets = getLotAssets(selectedLot?.id || "");
-    return selectedLotAssets.map((a) => a.id);
+    return selectedLotAssets.map((a: any) => a.id);
   };
 
   if (authLoading) {
@@ -274,25 +258,10 @@ export default function AdminLots() {
               Gerencie os lotes de leilão
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => closeExpiredLots()}
-              disabled={isClosingExpired}
-            >
-              {isClosingExpired ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Clock className="h-4 w-4" />
-              )}
-              Encerrar Expirados
-            </Button>
-            <Button className="gap-2" onClick={handleOpenCreate}>
-              <Plus className="h-4 w-4" />
-              Novo Lote
-            </Button>
-          </div>
+          <Button className="gap-2" onClick={handleOpenCreate}>
+            <Plus className="h-4 w-4" />
+            Novo Lote
+          </Button>
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -489,9 +458,6 @@ export default function AdminLots() {
             <DialogTitle>
               {editingLot ? "Editar Lote" : "Novo Lote"}
             </DialogTitle>
-            <DialogDescription className="sr-only">
-              {editingLot ? "Editar informações do lote" : "Preencha os dados para criar um novo lote"}
-            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -601,9 +567,6 @@ export default function AdminLots() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Gerenciar Ativos - {selectedLot?.title}</DialogTitle>
-            <DialogDescription className="sr-only">
-              Adicione ou remova ativos vinculados a este lote
-            </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             {/* Linked Assets */}
@@ -615,7 +578,7 @@ export default function AdminLots() {
                     Nenhum ativo vinculado
                   </p>
                 ) : (
-                  getLotAssets(selectedLot?.id || "").map((asset) => (
+                  getLotAssets(selectedLot?.id || "").map((asset: any) => (
                     <div
                       key={asset.id}
                       className="flex items-center justify-between p-2 rounded-lg border"

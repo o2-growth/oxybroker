@@ -221,7 +221,6 @@ export default function AdminUsers() {
       full_name: createData.full_name,
       role: createData.role,
       franchise_category_id: createData.franchise_category_id,
-      can_withdraw: createData.can_withdraw,
     });
     setCreating(false);
 

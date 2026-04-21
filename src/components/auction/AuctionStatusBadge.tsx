@@ -1,4 +1,3 @@
-import React from "react";
 import { Trophy, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/format";
@@ -10,18 +9,11 @@ interface AuctionStatusBadgeProps {
   className?: string;
 }
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-};
-
-export const AuctionStatusBadge = React.forwardRef<HTMLDivElement, AuctionStatusBadgeProps>(({
+export function AuctionStatusBadge({
   status,
   myBidAmount,
   className,
-}, ref) => {
+}: AuctionStatusBadgeProps) {
   const config = {
     winning: {
       icon: Trophy,
@@ -67,5 +59,4 @@ export const AuctionStatusBadge = React.forwardRef<HTMLDivElement, AuctionStatus
       </div>
     </div>
   );
-});
-AuctionStatusBadge.displayName = "AuctionStatusBadge";
+}

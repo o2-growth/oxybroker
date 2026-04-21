@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ShoppingCart, Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,14 +29,7 @@ interface BuyNowButtonProps {
   onPurchased?: () => void;
 }
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-};
-
-export const BuyNowButton = React.forwardRef<HTMLDivElement, BuyNowButtonProps>(({
+export function BuyNowButton({
   lotId,
   lotTitle,
   currentPrice,
@@ -45,7 +38,7 @@ export const BuyNowButton = React.forwardRef<HTMLDivElement, BuyNowButtonProps>(
   disabled,
   className,
   onPurchased,
-}, ref) => {
+}: BuyNowButtonProps) {
   const { buyNow, loading } = useBuyNow();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -145,5 +138,4 @@ export const BuyNowButton = React.forwardRef<HTMLDivElement, BuyNowButtonProps>(
       </AlertDialogContent>
     </AlertDialog>
   );
-});
-BuyNowButton.displayName = "BuyNowButton";
+}

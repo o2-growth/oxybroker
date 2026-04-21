@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ const parseCurrencyInput = (value: string): number => {
   return parseFloat(cleaned) || 0;
 };
 
-export const BidPanel = React.forwardRef<HTMLDivElement, BidPanelProps>(({ lot, userHasBids = false, onBidPlaced }, ref) => {
+export function BidPanel({ lot, userHasBids = false, onBidPlaced }: BidPanelProps) {
   const { user } = useAuth();
   const { placeBid, loading } = usePlaceBid();
   const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
@@ -343,5 +343,4 @@ export const BidPanel = React.forwardRef<HTMLDivElement, BidPanelProps>(({ lot, 
       </p>
     </div>
   );
-});
-BidPanel.displayName = "BidPanel";
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { queryKeys } from "@/lib/query-keys";
@@ -49,59 +49,26 @@ async function fetchWalletData(userId: string): Promise<WalletData> {
 
 export function useWallet() {
   const { user } = useAuth();
-  const userId = user?.id;
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [canWithdraw, setCanWithdraw] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchWallet = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.wallet.balance(user?.id ?? "__none__"),
+    queryFn: () => fetchWalletData(user!.id),
+    enabled: Boolean(user),
+  });
 
   const error = queryError ? (queryError as Error).message : null;
 
-    try {
-      const { data: walletData, error: walletError } = await supabase
-        .from("wallets")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (walletError) throw walletError;
-      setWallet(walletData);
-
-      const { data: txData, error: txError } = await supabase
-        .from("wallet_transactions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (txError) throw txError;
-      setTransactions(txData || []);
-
-      // Fetch can_withdraw from profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("can_withdraw")
-        .eq("id", userId)
-        .maybeSingle();
-
-      setCanWithdraw(profileData?.can_withdraw ?? false);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erro inesperado");
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    fetchWallet();
-  }, [fetchWallet]);
-
-  return { wallet, transactions, canWithdraw, loading, error, refetch: fetchWallet };
+  return {
+    wallet: data?.wallet ?? null,
+    transactions: data?.transactions ?? [],
+    canWithdraw: data?.canWithdraw ?? false,
+    loading,
+    error,
+    refetch,
+  };
 }

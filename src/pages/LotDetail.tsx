@@ -1,5 +1,4 @@
 import { useParams, Link } from "react-router-dom";
-import { useState, useCallback } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useLotDetail } from "@/hooks/useLotDetail";
 import { BidPanel } from "@/components/auction/BidPanel";
@@ -17,28 +16,12 @@ import {
   DollarSign,
   Building,
   Gavel,
-  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuctionStatus } from "@/hooks/useAuctionStatus";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import type { Database } from "@/integrations/supabase/types";
-
-type Asset = Database["public"]["Tables"]["assets"]["Row"];
-
-/** Extract image_url from the metadata JSONB field */
-function getAssetImageUrl(asset: Asset): string | null {
-  if (
-    asset.metadata &&
-    typeof asset.metadata === "object" &&
-    !Array.isArray(asset.metadata) &&
-    "image_url" in asset.metadata
-  ) {
-    return (asset.metadata as Record<string, unknown>).image_url as string | null;
-  }
-  return null;
-}
+import { formatCurrency, formatDate } from "@/lib/format";
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
   lead: "Lead",
@@ -55,12 +38,6 @@ export default function LotDetail() {
   const { wallet, refetch: refetchWallet } = useWallet();
   const auctionStatus = useAuctionStatus(lot?.bids || []);
   const { trackAction, trackDomainEvent } = useAnalytics();
-  const [expired, setExpired] = useState(false);
-
-  const handleCountdownComplete = useCallback(() => {
-    setExpired(true);
-    refetch();
-  }, [refetch]);
 
   const handlePurchased = () => {
     refetch();
@@ -99,7 +76,7 @@ export default function LotDetail() {
     );
   }
 
-  const isLive = lot.status === "live" && !expired;
+  const isLive = lot.status === "live";
   const balance = wallet ? Number(wallet.balance) : 0;
 
   return (
@@ -149,19 +126,6 @@ export default function LotDetail() {
               />
             )}
 
-            {/* Auction Expired Notice */}
-            {expired && (
-              <div className="flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/50">
-                <AlertTriangle className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="font-semibold">Leilao Encerrado</p>
-                  <p className="text-sm text-muted-foreground">
-                    O tempo deste leilao se esgotou. Nenhum novo lance pode ser realizado.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* Price & Timer */}
             <div className="oxy-card p-6">
               <div className="grid grid-cols-2 gap-6">
@@ -180,12 +144,8 @@ export default function LotDetail() {
                   <p className="text-sm text-muted-foreground mb-1">
                     {isLive ? "Encerra em" : "Encerrou em"}
                   </p>
-                  {lot.ends_at && lot.status === "live" && !expired ? (
-                    <CountdownTimer
-                      endTime={lot.ends_at}
-                      wasExtended={wasExtended}
-                      onComplete={handleCountdownComplete}
-                    />
+                  {lot.ends_at && isLive ? (
+                    <CountdownTimer endTime={lot.ends_at} wasExtended={wasExtended} />
                   ) : (
                     <p className="text-lg font-medium">
                       {lot.ends_at ? formatDate(lot.ends_at) : "-"}
@@ -224,66 +184,49 @@ export default function LotDetail() {
                     Nenhum ativo neste lote
                   </div>
                 ) : (
-                  lot.assets.map((asset) => {
-                    const assetImageUrl = getAssetImageUrl(asset);
-                    return (
-                      <div key={asset.id} className="p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-start gap-4">
-                          {/* Asset Image */}
-                          {assetImageUrl ? (
-                            <img
-                              src={assetImageUrl}
-                              alt={asset.title}
-                              className="h-16 w-16 rounded-lg object-cover border border-border shrink-0"
-                            />
-                          ) : (
-                            <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center border border-border shrink-0">
-                              <Package className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-medium">{asset.title}</h3>
-                                <Badge variant="outline" className="text-xs">
-                                  {ASSET_TYPE_LABELS[asset.asset_type] || asset.asset_type}
-                                </Badge>
-                              </div>
-                              <Badge className="oxy-badge-info shrink-0">
-                                Score: {asset.base_score}
-                              </Badge>
-                            </div>
-                            <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                              {asset.sector && (
-                                <span className="flex items-center gap-1">
-                                  <Building className="h-3.5 w-3.5" />
-                                  {asset.sector}
-                                </span>
-                              )}
-                              {asset.location_city && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3.5 w-3.5" />
-                                  {asset.location_city}, {asset.location_state}
-                                </span>
-                              )}
-                              {asset.employees_count && (
-                                <span className="flex items-center gap-1">
-                                  <Users className="h-3.5 w-3.5" />
-                                  {asset.employees_count} func.
-                                </span>
-                              )}
-                              {asset.revenue_range && (
-                                <span className="flex items-center gap-1">
-                                  <DollarSign className="h-3.5 w-3.5" />
-                                  {asset.revenue_range}
-                                </span>
-                              )}
-                            </div>
+                  lot.assets.map((asset) => (
+                    <div key={asset.id} className="p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{asset.title}</h3>
+                            <Badge variant="outline" className="text-xs">
+                              {ASSET_TYPE_LABELS[asset.asset_type] || asset.asset_type}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
+                            {asset.sector && (
+                              <span className="flex items-center gap-1">
+                                <Building className="h-3.5 w-3.5" />
+                                {asset.sector}
+                              </span>
+                            )}
+                            {asset.location_city && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {asset.location_city}, {asset.location_state}
+                              </span>
+                            )}
+                            {asset.employees_count && (
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3.5 w-3.5" />
+                                {asset.employees_count} func.
+                              </span>
+                            )}
+                            {asset.revenue_range && (
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="h-3.5 w-3.5" />
+                                {asset.revenue_range}
+                              </span>
+                            )}
                           </div>
                         </div>
+                        <Badge className="oxy-badge-info">
+                          Score: {asset.base_score}
+                        </Badge>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             </div>

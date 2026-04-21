@@ -65,7 +65,7 @@ export default function WalletPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const { trackAction } = useAnalytics();
+  const { trackAction, trackDomainEvent } = useAnalytics();
 
   const handleTopUpOpen = (open: boolean) => {
     setTopUpOpen(open);
@@ -82,7 +82,7 @@ export default function WalletPage() {
     if (!authLoading && !user) {
       navigate("/auth/login");
     }
-  }, [authLoading, navigate, user]);
+  }, [user, authLoading, navigate]);
 
   // Handle Stripe return query params
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function WalletPage() {
       toast.success("Pagamento processado!", {
         description: "Seu saldo será atualizado em instantes.",
       });
-      trackAction("topup_return_success");
+      trackDomainEvent("topup_confirmed", "success");
       setSearchParams({});
       // Refetch wallet data after a short delay
       setTimeout(() => refetch(), 2000);
@@ -99,10 +99,10 @@ export default function WalletPage() {
       toast.error("Recarga cancelada", {
         description: "A operação foi cancelada.",
       });
-      trackAction("topup_return_cancelled");
+      trackDomainEvent("topup_cancelled", "cancelled");
       setSearchParams({});
     }
-  }, [refetch, searchParams, setSearchParams, trackAction]);
+  }, [searchParams, setSearchParams, refetch, trackDomainEvent]);
 
   if (!user) {
     return null;

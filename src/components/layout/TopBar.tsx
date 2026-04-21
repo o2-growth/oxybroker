@@ -47,18 +47,17 @@ function BalanceBadge() {
 export function TopBar() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
-  const userId = user?.id;
   const [unreadCount, setUnreadCount] = useState(0);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!user) return;
 
     const fetchUnread = async () => {
       const { count } = await supabase
         .from("notifications")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
+        .eq("user_id", user.id)
         .is("read_at", null);
 
       setUnreadCount(count || 0);
@@ -74,7 +73,7 @@ export function TopBar() {
           event: "*",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${user.id}`,
         },
         () => {
           fetchUnread();
@@ -85,7 +84,7 @@ export function TopBar() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [user]);
 
   return (
     <>
