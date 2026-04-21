@@ -4,8 +4,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAnalytics } from "./useAnalytics";
 import { getAmountBucket } from "@/lib/analytics";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-
 export interface BankInfo {
   type: "pix" | "bank_account";
   pix_key?: string;
@@ -38,12 +36,14 @@ export function useWithdraw() {
         return false;
       }
 
+      const { data, error } = await supabase.functions.invoke("request-withdrawal", {
+        body: { amount, bank_info: bankInfo },
+      });
+
       if (error) throw error;
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Erro ao solicitar saque");
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       trackApiCall("request-withdrawal", "success", Date.now() - startedAt, {
