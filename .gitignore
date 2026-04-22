@@ -28,3 +28,10 @@ vite.config.ts.timestamp-*
 
 # Supabase CLI temp
 supabase/.temp/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+tests/e2e/.auth.json
